@@ -1,18 +1,18 @@
 namespace SubjectHitman.Abstractions.Api;
 
 /// <summary>
-/// Request body of <c>POST /api/v1/free-reports/usage-query</c>:
-/// personal data of a credit history subject taken from a credit report request.
+/// Тело запроса <c>POST /api/v1/free-reports/usage-query</c>:
+/// персональные данные субъекта кредитной истории из запроса кредитного отчёта.
 /// </summary>
-/// <param name="LastName">Current last name. Required.</param>
-/// <param name="FirstName">Current first name. Required.</param>
-/// <param name="MiddleName">Current middle name / patronymic. Optional.</param>
-/// <param name="BirthDate">Date of birth. Required.</param>
-/// <param name="Document">Current identity document. Required; <see cref="IdentityDocumentData.IssueDate"/> is required.</param>
-/// <param name="PreviousName">Previous full name. Optional.</param>
-/// <param name="PreviousDocument">Previous identity document. Optional; issue date is optional.</param>
-/// <param name="Inn">Taxpayer number (ИНН). Optional; <c>"-"</c> or empty string means absent.</param>
-/// <param name="Snils">Insurance account number (СНИЛС). Optional; <c>"-"</c> or empty string means absent.</param>
+/// <param name="LastName">Текущая фамилия. Обязательное поле.</param>
+/// <param name="FirstName">Текущее имя. Обязательное поле.</param>
+/// <param name="MiddleName">Текущее отчество. Необязательное поле.</param>
+/// <param name="BirthDate">Дата рождения. Обязательное поле.</param>
+/// <param name="Document">Текущий документ, удостоверяющий личность. Обязателен; <see cref="IdentityDocumentData.IssueDate"/> обязательна.</param>
+/// <param name="PreviousName">Предыдущее ФИО. Необязательное поле.</param>
+/// <param name="PreviousDocument">Предыдущий документ, удостоверяющий личность. Необязателен; дата выдачи необязательна.</param>
+/// <param name="Inn">ИНН. Необязательное поле; <c>"-"</c> или пустая строка означают отсутствие.</param>
+/// <param name="Snils">СНИЛС. Необязательное поле; <c>"-"</c> или пустая строка означают отсутствие.</param>
 public record UsageQueryRequest(
     string LastName,
     string FirstName,
@@ -25,9 +25,9 @@ public record UsageQueryRequest(
     string? Snils)
 {
     /// <summary>
-    /// Converts the request into the transport-agnostic <see cref="SubjectData"/> contract.
+    /// Преобразует запрос в транспортно-независимый контракт <see cref="SubjectData"/>.
     /// </summary>
-    /// <returns>Subject personal data equivalent to this request.</returns>
+    /// <returns>Персональные данные субъекта, эквивалентные этому запросу.</returns>
     public SubjectData ToSubjectData() => new(
         LastName, FirstName, MiddleName, BirthDate, Document, PreviousName, PreviousDocument, Inn, Snils);
 }

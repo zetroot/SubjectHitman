@@ -1,16 +1,16 @@
 namespace SubjectHitman.Api.Domain.Entities;
 
 /// <summary>
-/// Accounting status of an ordered report.
+/// Статус учёта заказанного отчёта.
 /// </summary>
 public enum ReportUsageStatus : short
 {
-    /// <summary>The report is ordered; the overall processing saga has not finished yet.</summary>
+    /// <summary>Отчёт заказан; общая сага обработки ещё не завершилась.</summary>
     Pending = 0,
 
-    /// <summary>The report was produced and delivered; it counts against the subject's free quota.</summary>
+    /// <summary>Отчёт изготовлен и предоставлен; учитывается в счёт бесплатной квоты субъекта.</summary>
     Charged = 1,
 
-    /// <summary>The report was not produced; it does not count against the quota.</summary>
+    /// <summary>Отчёт не был изготовлен; не учитывается в счёт квоты.</summary>
     NotCharged = 2,
 }

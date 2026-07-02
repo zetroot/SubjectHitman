@@ -6,29 +6,30 @@ using SubjectHitman.Abstractions.Api;
 namespace SubjectHitman.Api.Infrastructure;
 
 /// <summary>
-/// Settings of the external report status API client.
+/// Настройки клиента внешнего API статуса отчётов.
 /// </summary>
 public class ReportStatusApiOptions
 {
-    /// <summary>Configuration section name.</summary>
+    /// <summary>Имя секции конфигурации.</summary>
     public const string SectionName = "ReportStatusApi";
 
-    /// <summary>Base URL of the status API.</summary>
+    /// <summary>Базовый URL API статусов.</summary>
     [Required]
     public Uri BaseUrl { get; set; } = new("http://localhost:5100");
 
-    /// <summary>HTTP request timeout.</summary>
+    /// <summary>Таймаут HTTP-запроса.</summary>
     [Range(typeof(TimeSpan), "00:00:01", "00:05:00")]
     public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(5);
 }
 
 /// <summary>
-/// HTTP implementation of <see cref="IReportStatusClient"/> over
-/// <c>GET /reports/{reportId}/status</c>. Never throws: any transport or protocol error
-/// yields <see cref="ReportStatus.Unknown"/> (retries are the saga's responsibility).
+/// HTTP-реализация <see cref="IReportStatusClient"/> через
+/// <c>GET /reports/{reportId}/status</c>. Никогда не выбрасывает исключений: любая ошибка
+/// транспорта или протокола возвращает <see cref="ReportStatus.Unknown"/>
+/// (повторные попытки — зона ответственности саги).
 /// </summary>
-/// <param name="httpClient">Configured HTTP client.</param>
-/// <param name="logger">Logger.</param>
+/// <param name="httpClient">Настроенный HTTP-клиент.</param>
+/// <param name="logger">Логгер.</param>
 public class ReportStatusClient(HttpClient httpClient, ILogger<ReportStatusClient> logger) : IReportStatusClient
 {
     /// <inheritdoc />

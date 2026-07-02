@@ -1,20 +1,20 @@
 namespace SubjectHitman.Api.Domain.Entities;
 
 /// <summary>
-/// A precomputed search key of a subject: a SHA-256 hash over the normalized concatenation
-/// of a subset of the subject's personal data (see the technical spec, § 5.3).
+/// Предвычисленный ключ поиска субъекта: SHA-256 хэш над нормализованной конкатенацией
+/// подмножества персональных данных субъекта (см. техническую спецификацию, § 5.3).
 /// </summary>
 public class SearchKey
 {
-    /// <summary>Surrogate identifier.</summary>
+    /// <summary>Суррогатный идентификатор.</summary>
     public long Id { get; set; }
 
-    /// <summary>Owning subject identifier.</summary>
+    /// <summary>Идентификатор субъекта-владельца.</summary>
     public Guid SubjectId { get; set; }
 
-    /// <summary>Type of the key (K1..K6).</summary>
+    /// <summary>Тип ключа (K1..K6).</summary>
     public SearchKeyType KeyType { get; set; }
 
-    /// <summary>32-byte SHA-256 hash of the canonical key preimage.</summary>
+    /// <summary>32-байтовый SHA-256 хэш канонического прообраза ключа.</summary>
     public byte[] Hash { get; set; } = [];
 }

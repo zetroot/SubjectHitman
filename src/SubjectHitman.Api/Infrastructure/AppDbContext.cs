@@ -4,24 +4,24 @@ using SubjectHitman.Api.Domain.Entities;
 namespace SubjectHitman.Api.Infrastructure;
 
 /// <summary>
-/// EF Core database context of the SubjectHitman component (PostgreSQL).
+/// Контекст базы данных EF Core компонента SubjectHitman (PostgreSQL).
 /// </summary>
-/// <param name="options">Context options.</param>
+/// <param name="options">Параметры контекста.</param>
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    /// <summary>Credit history subjects (master records).</summary>
+    /// <summary>Субъекты кредитных историй (основные записи).</summary>
     public DbSet<Subject> Subjects => Set<Subject>();
 
-    /// <summary>Full names of subjects.</summary>
+    /// <summary>Полные имена субъектов.</summary>
     public DbSet<SubjectName> SubjectNames => Set<SubjectName>();
 
-    /// <summary>Identity documents of subjects.</summary>
+    /// <summary>Документы, удостоверяющие личность субъектов.</summary>
     public DbSet<SubjectDocument> SubjectDocuments => Set<SubjectDocument>();
 
-    /// <summary>Precomputed search keys.</summary>
+    /// <summary>Предварительно вычисленные ключи поиска.</summary>
     public DbSet<SearchKey> SearchKeys => Set<SearchKey>();
 
-    /// <summary>Report accounting records.</summary>
+    /// <summary>Учётные записи отчётов.</summary>
     public DbSet<ReportUsage> ReportUsages => Set<ReportUsage>();
 
     /// <inheritdoc />

@@ -3,25 +3,24 @@ using SubjectHitman.Abstractions;
 namespace SubjectHitman.Api.Domain;
 
 /// <summary>
-/// A normalized full name (all components upper-cased, transliterated, <c>"-"</c> for absent parts).
+/// Нормализованное полное имя (все компоненты в верхнем регистре, транслитерированы, <c>"-"</c> для отсутствующих частей).
 /// </summary>
-/// <param name="LastName">Normalized last name.</param>
-/// <param name="FirstName">Normalized first name.</param>
-/// <param name="MiddleName">Normalized middle name.</param>
+/// <param name="LastName">Нормализованная фамилия.</param>
+/// <param name="FirstName">Нормализованное имя.</param>
+/// <param name="MiddleName">Нормализованное отчество.</param>
 public readonly record struct NormalizedName(string LastName, string FirstName, string MiddleName);
 
 /// <summary>
-/// A normalized identity document (type code, series, number upper-cased; empty series for absent).
+/// Нормализованный документ, удостоверяющий личность (код типа, серия, номер в верхнем регистре; пустая серия при отсутствии).
 /// </summary>
-/// <param name="TypeCode">Normalized document type code.</param>
-/// <param name="Series">Normalized series; empty string when absent.</param>
-/// <param name="Number">Normalized document number.</param>
-/// <param name="IssueDate">Issue date; <see langword="null"/> when not provided (previous document only).</param>
+/// <param name="TypeCode">Нормализованный код типа документа.</param>
+/// <param name="Series">Нормализованная серия; пустая строка при отсутствии.</param>
+/// <param name="Number">Нормализованный номер документа.</param>
+/// <param name="IssueDate">Дата выдачи; <see langword="null"/>, если не указана (только для предыдущего документа).</param>
 public readonly record struct NormalizedDocument(string TypeCode, string Series, string Number, DateOnly? IssueDate);
 
 /// <summary>
-/// Subject personal data after normalization (technical spec, § 5.1), the single source
-/// for both search-key computation and persistence.
+/// Персональные данные субъекта после нормализации (техническая спецификация, § 5.1), единый источник как для вычисления поисковых ключей, так и для хранения.
 /// </summary>
 public sealed class NormalizedSubject
 {
@@ -39,26 +38,26 @@ public sealed class NormalizedSubject
         Snils = snils;
     }
 
-    /// <summary>Distinct normalized full names (current + previous).</summary>
+    /// <summary>Уникальные нормализованные полные имена (текущие + предыдущие).</summary>
     public IReadOnlyList<NormalizedName> Names { get; }
 
-    /// <summary>Distinct normalized identity documents (current + previous).</summary>
+    /// <summary>Уникальные нормализованные документы, удостоверяющие личность (текущие + предыдущие).</summary>
     public IReadOnlyList<NormalizedDocument> Documents { get; }
 
-    /// <summary>Date of birth, when present.</summary>
+    /// <summary>Дата рождения, если указана.</summary>
     public DateOnly? BirthDate { get; }
 
-    /// <summary>Digits-only INN, or <see langword="null"/> when absent.</summary>
+    /// <summary>ИНН, содержащий только цифры, или <see langword="null"/> при отсутствии.</summary>
     public string? Inn { get; }
 
-    /// <summary>Digits-only SNILS, or <see langword="null"/> when absent.</summary>
+    /// <summary>СНИЛС, содержащий только цифры, или <see langword="null"/> при отсутствии.</summary>
     public string? Snils { get; }
 
     /// <summary>
-    /// Normalizes raw subject data received from an external system.
+    /// Нормализует необработанные данные субъекта, полученные из внешней системы.
     /// </summary>
-    /// <param name="data">Raw subject personal data.</param>
-    /// <returns>The normalized representation with deduplicated names and documents.</returns>
+    /// <param name="data">Необработанные персональные данные субъекта.</param>
+    /// <returns>Нормализованное представление с дедуплицированными именами и документами.</returns>
     public static NormalizedSubject FromSubjectData(SubjectData data)
     {
         ArgumentNullException.ThrowIfNull(data);
@@ -87,14 +86,14 @@ public sealed class NormalizedSubject
     }
 
     /// <summary>
-    /// Builds a normalized view from already-normalized stored values of a subject.
+    /// Создаёт нормализованное представление из уже нормализованных сохранённых значений субъекта.
     /// </summary>
-    /// <param name="names">Stored names (already normalized).</param>
-    /// <param name="documents">Stored documents (already normalized).</param>
-    /// <param name="birthDate">Stored date of birth.</param>
-    /// <param name="inn">Stored digits-only INN.</param>
-    /// <param name="snils">Stored digits-only SNILS.</param>
-    /// <returns>The normalized representation.</returns>
+    /// <param name="names">Сохранённые имена (уже нормализованные).</param>
+    /// <param name="documents">Сохранённые документы (уже нормализованные).</param>
+    /// <param name="birthDate">Сохранённая дата рождения.</param>
+    /// <param name="inn">Сохранённый ИНН, содержащий только цифры.</param>
+    /// <param name="snils">Сохранённый СНИЛС, содержащий только цифры.</param>
+    /// <returns>Нормализованное представление.</returns>
     public static NormalizedSubject FromStored(
         IEnumerable<NormalizedName> names,
         IEnumerable<NormalizedDocument> documents,

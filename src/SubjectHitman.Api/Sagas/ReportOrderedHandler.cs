@@ -8,24 +8,24 @@ using Wolverine;
 namespace SubjectHitman.Api.Sagas;
 
 /// <summary>
-/// Handles the <see cref="ReportOrdered"/> event: identifies the subject,
-/// creates a <see cref="ReportUsage"/> in <see cref="ReportUsageStatus.Pending"/> status,
-/// and schedules the first status check timeout.
-/// Idempotent: a duplicate event for an already known report is ignored.
+/// Обрабатывает событие <see cref="ReportOrdered"/>: определяет субъект,
+/// создаёт запись <see cref="ReportUsage"/> в статусе <see cref="ReportUsageStatus.Pending"/>,
+/// и планирует первую проверку статуса по таймауту.
+/// Идемпотентен: повторное событие для уже известного отчёта игнорируется.
 /// </summary>
 public static class ReportOrderedHandler
 {
     /// <summary>
-    /// Processes the report ordered event.
+    /// Обрабатывает событие заказа отчёта.
     /// </summary>
-    /// <param name="message">The report ordered event.</param>
-    /// <param name="identification">Subject identification service.</param>
-    /// <param name="dbContext">Database context.</param>
-    /// <param name="sagaOptions">Saga settings (timeout, max retries).</param>
-    /// <param name="timeProvider">Time provider.</param>
-    /// <param name="logger">Logger.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>Outgoing messages containing the scheduled status check timeout.</returns>
+    /// <param name="message">Событие заказа отчёта.</param>
+    /// <param name="identification">Сервис идентификации субъекта.</param>
+    /// <param name="dbContext">Контекст базы данных.</param>
+    /// <param name="sagaOptions">Настройки саги (таймаут, максимальное количество повторов).</param>
+    /// <param name="timeProvider">Провайдер времени.</param>
+    /// <param name="logger">Логгер.</param>
+    /// <param name="ct">Токен отмены.</param>
+    /// <returns>Исходящие сообщения, содержащие запланированную проверку статуса по таймауту.</returns>
     public static async Task<OutgoingMessages> Handle(
         ReportOrdered message,
         SubjectIdentificationService identification,

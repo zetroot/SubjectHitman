@@ -6,31 +6,31 @@ using SubjectHitman.Api.Infrastructure;
 namespace SubjectHitman.Api.Domain;
 
 /// <summary>
-/// Result of a free-report usage count.
+/// Результат подсчёта использованных бесплатных отчётов.
 /// </summary>
-/// <param name="UsedFreeReportsCount">Number of cooldown-collapsed charged free reports in the period.</param>
-/// <param name="PeriodStart">Inclusive start of the calendar-year period.</param>
-/// <param name="PeriodEnd">Inclusive end of the calendar-year period (last second of the year).</param>
+/// <param name="UsedFreeReportsCount">Количество оплаченных бесплатных отчётов в периоде с учётом группировки по кулдауну.</param>
+/// <param name="PeriodStart">Включающая нижняя граница периода календарного года.</param>
+/// <param name="PeriodEnd">Включающая верхняя граница периода календарного года (последняя секунда года).</param>
 public record FreeReportCountResult(int UsedFreeReportsCount, DateTimeOffset PeriodStart, DateTimeOffset PeriodEnd);
 
 /// <summary>
-/// Counts free reports charged to a subject within the current calendar year,
-/// collapsing reports inside the cooldown period into one (technical spec, § 6).
+/// Подсчитывает бесплатные отчёты, предоставленные субъекту в текущем календарном году,
+/// группируя отчёты внутри периода кулдауна в один (техническая спецификация, § 6).
 /// </summary>
-/// <param name="dbContext">Database context.</param>
-/// <param name="options">Counting options (cooldown, time zone).</param>
-/// <param name="timeProvider">Time provider defining "now".</param>
+/// <param name="dbContext">Контекст базы данных.</param>
+/// <param name="options">Настройки подсчёта (кулдаун, часовой пояс).</param>
+/// <param name="timeProvider">Источник времени, определяющий «сейчас».</param>
 public class FreeReportCounter(
     AppDbContext dbContext,
     IOptions<FreeReportsOptions> options,
     TimeProvider timeProvider)
 {
     /// <summary>
-    /// Counts cooldown-collapsed charged free reports of the subject for the current calendar year.
+    /// Подсчитывает оплаченные бесплатные отчёты субъекта за текущий календарный год с учётом группировки по кулдауну.
     /// </summary>
-    /// <param name="subjectId">Internal subject identifier.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The count and the calendar-year period boundaries.</returns>
+    /// <param name="subjectId">Внутренний идентификатор субъекта.</param>
+    /// <param name="ct">Токен отмены.</param>
+    /// <returns>Количество и границы периода календарного года.</returns>
     public async Task<FreeReportCountResult> CountAsync(Guid subjectId, CancellationToken ct)
     {
         var tz = TimeZoneInfo.FindSystemTimeZoneById(options.Value.TimeZone);
@@ -63,13 +63,13 @@ public class FreeReportCounter(
     }
 
     /// <summary>
-    /// Collapses a chronologically sorted sequence of report timestamps into groups:
-    /// a report belongs to the current group when it is within <paramref name="cooldown"/>
-    /// of the FIRST report of the group (strictly greater difference opens a new group).
+    /// Группирует хронологически упорядоченную последовательность отметок времени отчётов:
+    /// отчёт принадлежит текущей группе, если он находится в пределах <paramref name="cooldown"/>
+    /// от ПЕРВОГО отчёта группы (строго большая разница открывает новую группу).
     /// </summary>
-    /// <param name="orderedTimestamps">Timestamps sorted ascending.</param>
-    /// <param name="cooldown">Cooldown period.</param>
-    /// <returns>The number of groups.</returns>
+    /// <param name="orderedTimestamps">Отметки времени, отсортированные по возрастанию.</param>
+    /// <param name="cooldown">Период кулдауна.</param>
+    /// <returns>Количество групп.</returns>
     public static int CollapseByCooldown(IReadOnlyList<DateTimeOffset> orderedTimestamps, TimeSpan cooldown)
     {
         ArgumentNullException.ThrowIfNull(orderedTimestamps);

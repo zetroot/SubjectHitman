@@ -1,9 +1,9 @@
 namespace SubjectHitman.Api.Sagas;
 
 /// <summary>
-/// Internal scheduled message that triggers a status check of a pending report accounting saga.
-/// Never leaves the local durable queue.
+/// Внутреннее запланированное сообщение, которое запускает проверку статуса ожидающей саги учёта отчёта.
+/// Никогда не покидает локальную устойчивую очередь.
 /// </summary>
-/// <param name="ReportId">Report order identifier.</param>
-/// <param name="CheckCount">Number of status checks already performed (0-based).</param>
+/// <param name="ReportId">Идентификатор заказа отчёта.</param>
+/// <param name="CheckCount">Количество уже выполненных проверок статуса (начиная с 0).</param>
 public record ReportStatusCheckTimeout(Guid ReportId, int CheckCount);

@@ -6,21 +6,21 @@ using Wolverine.Http;
 namespace SubjectHitman.Api.Endpoints;
 
 /// <summary>
-/// HTTP endpoint answering how many free credit reports a subject has used
-/// in the current calendar year (US-1).
+/// HTTP-эндпоинт, отвечающий на запрос о количестве использованных бесплатных кредитных отчётов
+/// субъектом в текущем календарном году (US-1).
 /// </summary>
 public static class UsageQueryEndpoint
 {
     /// <summary>
-    /// Identifies the subject by the personal data from a credit report request
-    /// (creating or enriching the subject record) and returns the number of
-    /// cooldown-collapsed charged free reports for the current calendar year.
+    /// Идентифицирует субъекта по персональным данным из запроса кредитного отчёта
+    /// (создавая или обогащая запись субъекта) и возвращает количество
+    /// платных бесплатных отчётов с учётом кулдауна за текущий календарный год.
     /// </summary>
-    /// <param name="request">Subject personal data from the credit report request.</param>
-    /// <param name="identification">Subject identification service.</param>
-    /// <param name="counter">Free report counter.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns><c>200 OK</c> with the count, or <c>400</c> with validation problems.</returns>
+    /// <param name="request">Персональные данные субъекта из запроса кредитного отчёта.</param>
+    /// <param name="identification">Сервис идентификации субъекта.</param>
+    /// <param name="counter">Счётчик бесплатных отчётов.</param>
+    /// <param name="ct">Токен отмены.</param>
+    /// <returns><c>200 OK</c> с количеством использованных отчётов или <c>400</c> с ошибками валидации.</returns>
     [WolverinePost("/api/v1/free-reports/usage-query")]
     public static async Task<Results<Ok<UsageQueryResponse>, ValidationProblem>> Post(
         UsageQueryRequest request,
@@ -45,10 +45,10 @@ public static class UsageQueryEndpoint
     }
 
     /// <summary>
-    /// Validates the request per the technical spec § 4.2.
+    /// Валидирует запрос согласно технической спецификации § 4.2.
     /// </summary>
-    /// <param name="request">The request to validate.</param>
-    /// <returns>Validation errors keyed by field name; empty when the request is valid.</returns>
+    /// <param name="request">Запрос для валидации.</param>
+    /// <returns>Ошибки валидации, сгруппированные по имени поля; пустой словарь, если запрос корректен.</returns>
     public static Dictionary<string, string[]> Validate(UsageQueryRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);

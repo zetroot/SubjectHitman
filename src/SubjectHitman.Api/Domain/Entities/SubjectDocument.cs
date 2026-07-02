@@ -1,30 +1,30 @@
 namespace SubjectHitman.Api.Domain.Entities;
 
 /// <summary>
-/// An identity document of a subject. A subject may have multiple documents;
-/// no distinction between current and previous documents is stored.
-/// All values are stored in normalized form (see the technical spec, § 5.1).
+/// Документ, удостоверяющий личность субъекта. Субъект может иметь несколько документов;
+/// различие между текущим и предыдущим документом не хранится.
+/// Все значения хранятся в нормализованном виде (см. техническую спецификацию, § 5.1).
 /// </summary>
 public class SubjectDocument
 {
-    /// <summary>Surrogate identifier.</summary>
+    /// <summary>Суррогатный идентификатор.</summary>
     public long Id { get; set; }
 
-    /// <summary>Owning subject identifier.</summary>
+    /// <summary>Идентификатор субъекта-владельца.</summary>
     public Guid SubjectId { get; set; }
 
-    /// <summary>Document type code per the Bank of Russia classifier.</summary>
+    /// <summary>Код вида документа по классификатору Банка России.</summary>
     public string TypeCode { get; set; } = string.Empty;
 
-    /// <summary>Document series; empty string when the document has no series.</summary>
+    /// <summary>Серия документа; пустая строка, если у документа нет серии.</summary>
     public string Series { get; set; } = string.Empty;
 
-    /// <summary>Document number.</summary>
+    /// <summary>Номер документа.</summary>
     public string Number { get; set; } = string.Empty;
 
     /// <summary>
-    /// Issue date. May be <see langword="null"/> for a previous document received without a date;
-    /// such documents do not participate in the K3 search key.
+    /// Дата выдачи. Может быть <see langword="null"/> для предыдущего документа,
+    /// полученного без даты; такие документы не участвуют в ключе поиска K3.
     /// </summary>
     public DateOnly? IssueDate { get; set; }
 }

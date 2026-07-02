@@ -4,8 +4,8 @@ using Microsoft.EntityFrameworkCore.Design;
 namespace SubjectHitman.Api.Infrastructure;
 
 /// <summary>
-/// Design-time factory for <see cref="AppDbContext"/> used by <c>dotnet ef</c> tooling
-/// (migration generation) without booting the full application host.
+/// Фабрика времени разработки для <see cref="AppDbContext"/>, используемая инструментарием
+/// <c>dotnet ef</c> (создание миграций) без запуска полного хоста приложения.
 /// </summary>
 public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
 {

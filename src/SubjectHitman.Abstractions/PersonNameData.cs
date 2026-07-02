@@ -1,9 +1,9 @@
 namespace SubjectHitman.Abstractions;
 
 /// <summary>
-/// Full name (last, first, middle) of a credit history subject as received from an external system.
+/// ФИО (фамилия, имя, отчество) субъекта кредитной истории, полученное от внешней системы.
 /// </summary>
-/// <param name="LastName">Last name (фамилия). Required.</param>
-/// <param name="FirstName">First name (имя). Required.</param>
-/// <param name="MiddleName">Middle name / patronymic (отчество). Optional.</param>
+/// <param name="LastName">Фамилия. Обязательное поле.</param>
+/// <param name="FirstName">Имя. Обязательное поле.</param>
+/// <param name="MiddleName">Отчество. Необязательное поле.</param>
 public record PersonNameData(string LastName, string FirstName, string? MiddleName);

@@ -96,11 +96,11 @@ if (app.Configuration.GetValue("Database:ApplyMigrationsOnStartup", true))
 await app.RunAsync();
 
 /// <summary>
-/// Application entry point marker class enabling <c>WebApplicationFactory</c>-based integration tests.
+/// Класс-маркер точки входа в приложение, позволяющий использовать интеграционные тесты на базе <c>WebApplicationFactory</c>.
 /// </summary>
 public partial class Program
 {
-    /// <summary>Protected constructor for the generated entry-point class.</summary>
+    /// <summary>Защищённый конструктор для генерируемого класса точки входа.</summary>
     protected Program()
     {
     }

@@ -1,9 +1,9 @@
 namespace SubjectHitman.Abstractions.Messages;
 
 /// <summary>
-/// Event published by the report-processing orchestrator when the overall report saga finished successfully
-/// and the client was notified that the report is ready. The report must be accounted as charged.
+/// Событие, публикуемое оркестратором обработки отчётов при успешном завершении общей саги
+/// и оповещении клиента о готовности отчёта. Отчёт должен быть учтён как списанный.
 /// </summary>
-/// <param name="ReportId">Unique identifier of the report order.</param>
-/// <param name="CompletedAt">Moment the overall saga completed.</param>
+/// <param name="ReportId">Уникальный идентификатор заказа отчёта.</param>
+/// <param name="CompletedAt">Момент завершения общей саги.</param>
 public record ReportCompleted(Guid ReportId, DateTimeOffset CompletedAt);

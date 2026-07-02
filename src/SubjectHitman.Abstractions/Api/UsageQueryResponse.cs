@@ -1,15 +1,15 @@
 namespace SubjectHitman.Abstractions.Api;
 
 /// <summary>
-/// Response body of <c>POST /api/v1/free-reports/usage-query</c>.
+/// Тело ответа <c>POST /api/v1/free-reports/usage-query</c>.
 /// </summary>
-/// <param name="SubjectId">Internal identifier of the identified (or newly created) subject.</param>
+/// <param name="SubjectId">Внутренний идентификатор идентифицированного (или вновь созданного) субъекта.</param>
 /// <param name="UsedFreeReportsCount">
-/// Number of free reports charged to the subject within the current calendar year,
-/// with reports inside the configured cooldown period collapsed into one.
+/// Количество бесплатных отчётов, списанных субъекту в текущем календарном году,
+/// с учётом схлопывания отчётов внутри настроенного cooldown-периода в одну группу.
 /// </param>
-/// <param name="PeriodStart">Inclusive start of the counted period (January 1 of the current year in the configured time zone).</param>
-/// <param name="PeriodEnd">Inclusive end of the counted period (December 31, 23:59:59 of the current year in the configured time zone).</param>
+/// <param name="PeriodStart">Включающая нижняя граница учитываемого периода (1 января текущего года в настроенной таймзоне).</param>
+/// <param name="PeriodEnd">Включающая верхняя граница учитываемого периода (31 декабря 23:59:59 текущего года в настроенной таймзоне).</param>
 public record UsageQueryResponse(
     Guid SubjectId,
     int UsedFreeReportsCount,

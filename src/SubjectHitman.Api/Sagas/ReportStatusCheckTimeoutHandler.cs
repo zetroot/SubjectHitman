@@ -7,22 +7,22 @@ using Wolverine;
 namespace SubjectHitman.Api.Sagas;
 
 /// <summary>
-/// Scheduled handler that checks the status of a pending report via the external status API
-/// and either finalises the report accounting or re-schedules another check (up to <c>MaxTimeoutRetries</c> times).
+/// Запланированный обработчик, который проверяет статус ожидающего отчёта через внешний API статусов
+/// и либо завершает учёт отчёта, либо перепланирует следующую проверку (до <c>MaxTimeoutRetries</c> раз).
 /// </summary>
 public static class ReportStatusCheckTimeoutHandler
 {
     /// <summary>
-    /// Processes the scheduled timeout: queries the external status API and acts on the result.
+    /// Обрабатывает запланированный таймаут: запрашивает внешний API статусов и действует по результату.
     /// </summary>
-    /// <param name="message">The timeout message with the report identifier and check count.</param>
-    /// <param name="statusClient">External status API client.</param>
-    /// <param name="dbContext">Database context.</param>
-    /// <param name="sagaOptions">Saga settings.</param>
-    /// <param name="timeProvider">Time provider.</param>
-    /// <param name="logger">Logger.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>Outgoing messages: a re-scheduled timeout when the status is still unknown, otherwise nothing.</returns>
+    /// <param name="message">Сообщение таймаута с идентификатором отчёта и счётчиком проверок.</param>
+    /// <param name="statusClient">Клиент внешнего API статусов.</param>
+    /// <param name="dbContext">Контекст базы данных.</param>
+    /// <param name="sagaOptions">Настройки саги.</param>
+    /// <param name="timeProvider">Провайдер времени.</param>
+    /// <param name="logger">Логгер.</param>
+    /// <param name="ct">Токен отмены.</param>
+    /// <returns>Исходящие сообщения: перепланированный таймаут, если статус всё ещё неизвестен, иначе ничего.</returns>
     public static async Task<OutgoingMessages> Handle(
         ReportStatusCheckTimeout message,
         IReportStatusClient statusClient,

@@ -5,19 +5,19 @@ using SubjectHitman.Api.Infrastructure;
 namespace SubjectHitman.Api.Sagas;
 
 /// <summary>
-/// Handles the <see cref="ReportFailed"/> event: marks the report as not charged.
-/// If the report is unknown, the event is logged and discarded (Q2).
+/// Обрабатывает событие <see cref="ReportFailed"/>: помечает отчёт как неоплаченный.
+/// Если отчёт неизвестен, событие логируется и отбрасывается (Q2).
 /// </summary>
 public static class ReportFailedHandler
 {
     /// <summary>
-    /// Processes the report failed event.
+    /// Обрабатывает событие ошибки отчёта.
     /// </summary>
-    /// <param name="message">The report failed event.</param>
-    /// <param name="dbContext">Database context.</param>
-    /// <param name="timeProvider">Time provider.</param>
-    /// <param name="logger">Logger.</param>
-    /// <param name="ct">Cancellation token.</param>
+    /// <param name="message">Событие ошибки отчёта.</param>
+    /// <param name="dbContext">Контекст базы данных.</param>
+    /// <param name="timeProvider">Провайдер времени.</param>
+    /// <param name="logger">Логгер.</param>
+    /// <param name="ct">Токен отмены.</param>
     public static async Task Handle(
         ReportFailed message,
         AppDbContext dbContext,

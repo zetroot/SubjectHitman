@@ -1,23 +1,23 @@
 namespace SubjectHitman.Abstractions;
 
 /// <summary>
-/// Personal data of a credit history subject (a citizen of the Russian Federation)
-/// in the scope required by the search keys derived from Bank of Russia Directive 5791-U.
+/// Персональные данные субъекта кредитной истории (гражданина РФ)
+/// в объёме, необходимом для ключей поиска, производных от указания Банка России 5791-У.
 /// </summary>
-/// <param name="LastName">Current last name. Required.</param>
-/// <param name="FirstName">Current first name. Required.</param>
-/// <param name="MiddleName">Current middle name / patronymic. Optional.</param>
-/// <param name="BirthDate">Date of birth. Required (per Appendix 1 of Directive 5791-U).</param>
-/// <param name="Document">Current identity document. Required, must contain an issue date.</param>
-/// <param name="PreviousName">Previous full name, if the subject changed it. Optional.</param>
-/// <param name="PreviousDocument">Previous identity document. Optional.</param>
+/// <param name="LastName">Текущая фамилия. Обязательное поле.</param>
+/// <param name="FirstName">Текущее имя. Обязательное поле.</param>
+/// <param name="MiddleName">Текущее отчество. Необязательное поле.</param>
+/// <param name="BirthDate">Дата рождения. Обязательное поле (согласно приложению 1 к указанию 5791-У).</param>
+/// <param name="Document">Текущий документ, удостоверяющий личность. Обязателен, должен содержать дату выдачи.</param>
+/// <param name="PreviousName">Предыдущее ФИО, если субъект его менял. Необязательное поле.</param>
+/// <param name="PreviousDocument">Предыдущий документ, удостоверяющий личность. Необязательное поле.</param>
 /// <param name="Inn">
-/// Taxpayer identification number (ИНН). Optional. The literal value <c>"-"</c> or an empty string
-/// denotes an absent value.
+/// Идентификационный номер налогоплательщика (ИНН). Необязательное поле. Значение <c>"-"</c> или пустая строка
+/// означают отсутствие показателя.
 /// </param>
 /// <param name="Snils">
-/// Individual insurance account number (СНИЛС). Optional. The literal value <c>"-"</c> or an empty string
-/// denotes an absent value.
+/// Страховой номер индивидуального лицевого счёта (СНИЛС). Необязательное поле. Значение <c>"-"</c> или пустая строка
+/// означают отсутствие показателя.
 /// </param>
 public record SubjectData(
     string LastName,

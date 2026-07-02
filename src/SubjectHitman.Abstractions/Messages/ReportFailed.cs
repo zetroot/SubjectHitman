@@ -1,10 +1,10 @@
 namespace SubjectHitman.Abstractions.Messages;
 
 /// <summary>
-/// Event published by the report-processing orchestrator when the overall report saga failed
-/// and the report cannot be produced. The report must be accounted as not charged.
+/// Событие, публикуемое оркестратором обработки отчётов при неуспешном завершении общей саги,
+/// когда отчёт не может быть изготовлен. Отчёт должен быть учтён как не списанный.
 /// </summary>
-/// <param name="ReportId">Unique identifier of the report order.</param>
-/// <param name="FailedAt">Moment the overall saga failed.</param>
-/// <param name="Reason">Optional human-readable failure reason.</param>
+/// <param name="ReportId">Уникальный идентификатор заказа отчёта.</param>
+/// <param name="FailedAt">Момент неуспешного завершения общей саги.</param>
+/// <param name="Reason">Необязательная человекочитаемая причина неуспеха.</param>
 public record ReportFailed(Guid ReportId, DateTimeOffset FailedAt, string? Reason);

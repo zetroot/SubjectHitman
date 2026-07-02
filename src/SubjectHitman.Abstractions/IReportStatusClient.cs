@@ -1,18 +1,18 @@
 namespace SubjectHitman.Abstractions;
 
 /// <summary>
-/// Client for the external report-processing system's status API.
-/// Used by the accounting saga timeout branch to resolve the final state of a stalled report.
+/// Клиент внешнего API статуса основной системы обработки отчётов.
+/// Используется в timeout-ветке учёта для определения финального состояния зависшего отчёта.
 /// </summary>
 public interface IReportStatusClient
 {
     /// <summary>
-    /// Gets the current status of a report in the main system.
-    /// Implementations must not throw on transport failures — any error is reported
-    /// as <see cref="ReportStatus.Unknown"/>.
+    /// Возвращает текущий статус отчёта в основной системе.
+    /// Реализации не должны бросать исключения при ошибках транспорта — любая ошибка
+    /// возвращается как <see cref="ReportStatus.Unknown"/>.
     /// </summary>
-    /// <param name="reportId">Report order identifier.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The report status, or <see cref="ReportStatus.Unknown"/> when it cannot be determined.</returns>
+    /// <param name="reportId">Идентификатор заказа отчёта.</param>
+    /// <param name="ct">Токен отмены.</param>
+    /// <returns>Статус отчёта или <see cref="ReportStatus.Unknown"/>, если его не удалось определить.</returns>
     Task<ReportStatus> GetStatusAsync(Guid reportId, CancellationToken ct);
 }

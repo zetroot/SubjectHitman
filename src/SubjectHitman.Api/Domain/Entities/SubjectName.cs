@@ -1,24 +1,24 @@
 namespace SubjectHitman.Api.Domain.Entities;
 
 /// <summary>
-/// A full name of a subject. A subject may have multiple names (e.g. before and after marriage);
-/// no distinction between current and previous names is stored.
-/// All values are stored in normalized form (see the technical spec, § 5.1).
+/// ФИО субъекта. Субъект может иметь несколько вариантов ФИО (например, до и после смены фамилии);
+/// различие между текущим и предыдущим ФИО не хранится.
+/// Все значения хранятся в нормализованном виде (см. техническую спецификацию, § 5.1).
 /// </summary>
 public class SubjectName
 {
-    /// <summary>Surrogate identifier.</summary>
+    /// <summary>Суррогатный идентификатор.</summary>
     public long Id { get; set; }
 
-    /// <summary>Owning subject identifier.</summary>
+    /// <summary>Идентификатор субъекта-владельца.</summary>
     public Guid SubjectId { get; set; }
 
-    /// <summary>Normalized last name; <c>"-"</c> when absent.</summary>
+    /// <summary>Нормализованная фамилия; <c>"-"</c> при отсутствии.</summary>
     public string LastName { get; set; } = string.Empty;
 
-    /// <summary>Normalized first name; <c>"-"</c> when absent.</summary>
+    /// <summary>Нормализованное имя; <c>"-"</c> при отсутствии.</summary>
     public string FirstName { get; set; } = string.Empty;
 
-    /// <summary>Normalized middle name; <c>"-"</c> when absent.</summary>
+    /// <summary>Нормализованное отчество; <c>"-"</c> при отсутствии.</summary>
     public string MiddleName { get; set; } = string.Empty;
 }

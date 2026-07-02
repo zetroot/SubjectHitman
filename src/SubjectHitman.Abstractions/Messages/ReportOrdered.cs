@@ -1,11 +1,11 @@
 namespace SubjectHitman.Abstractions.Messages;
 
 /// <summary>
-/// Event published by the report-processing orchestrator when a credit report has been ordered.
-/// Starts the report accounting saga in this component.
+/// Событие, публикуемое оркестратором обработки отчётов при заказе кредитного отчёта.
+/// Запускает процесс учёта отчёта в этом компоненте.
 /// </summary>
-/// <param name="ReportId">Unique identifier of the report order.</param>
-/// <param name="OrderedAt">Moment the report was ordered. Used to attribute the report to a calendar year.</param>
-/// <param name="IsFree">Whether the ordered report is free of charge for the subject.</param>
-/// <param name="Subject">Personal data of the subject the report was ordered for.</param>
+/// <param name="ReportId">Уникальный идентификатор заказа отчёта.</param>
+/// <param name="OrderedAt">Момент заказа отчёта. Используется для отнесения отчёта к календарному году.</param>
+/// <param name="IsFree">Признак того, что заказанный отчёт бесплатный для субъекта.</param>
+/// <param name="Subject">Персональные данные субъекта, для которого заказан отчёт.</param>
 public record ReportOrdered(Guid ReportId, DateTimeOffset OrderedAt, bool IsFree, SubjectData Subject);

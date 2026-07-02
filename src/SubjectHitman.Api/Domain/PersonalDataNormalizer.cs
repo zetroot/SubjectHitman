@@ -3,13 +3,13 @@ using System.Text;
 namespace SubjectHitman.Api.Domain;
 
 /// <summary>
-/// Normalization rules for subject personal data (technical spec, § 5.1–5.2).
-/// Applied both to incoming requests and to data before persisting, so that stored values
-/// and computed hashes are always comparable.
+/// Правила нормализации персональных данных субъекта (техническая спецификация, § 5.1–5.2).
+/// Применяются и к входящим запросам, и к данным перед сохранением, чтобы хранимые значения
+/// и вычисляемые хэши всегда были сравнимы.
 /// </summary>
 public static class PersonalDataNormalizer
 {
-    /// <summary>Placeholder stored instead of an absent name component.</summary>
+    /// <summary>Заглушка, сохраняемая вместо отсутствующего компонента ФИО.</summary>
     public const string AbsentNameComponent = "-";
 
     private static readonly Dictionary<char, char> LatinToCyrillic = new()
@@ -29,12 +29,13 @@ public static class PersonalDataNormalizer
     };
 
     /// <summary>
-    /// Normalizes a full-name component: NFC, trim, whitespace collapse, upper-case,
-    /// latin-to-cyrillic transliteration of visually identical letters (5791-U, Appendix 2, note 2).
-    /// Absent or empty values become <see cref="AbsentNameComponent"/>.
+    /// Нормализует компонент ФИО: НФД, обрезка краевых пробелов, схлопывание пробелов,
+    /// приведение к верхнему регистру, транслитерация визуально идентичных латинских букв
+    /// в кириллические (5791-У, Приложение 2, прим. 2).
+    /// Отсутствующее или пустое значение заменяется на <see cref="AbsentNameComponent"/>.
     /// </summary>
-    /// <param name="value">Raw name component; may be <see langword="null"/>.</param>
-    /// <returns>The normalized component, never null or empty.</returns>
+    /// <param name="value">Исходный компонент имени; может быть <see langword="null"/>.</param>
+    /// <returns>Нормализованный компонент, никогда не <see langword="null"/> и не пустая строка.</returns>
     public static string NormalizeNameComponent(string? value)
     {
         var basic = NormalizeBasic(value);
@@ -56,20 +57,21 @@ public static class PersonalDataNormalizer
     }
 
     /// <summary>
-    /// Normalizes a document field (type code, series, number): NFC, trim, whitespace collapse, upper-case.
-    /// Absent values become an empty string (an absent series matches an absent series —
-    /// 5791-U, Appendix 2, note 4).
+    /// Нормализует поле документа (код типа, серия, номер): НФД, обрезка краевых пробелов,
+    /// схлопывание пробелов, приведение к верхнему регистру.
+    /// Отсутствующие значения становятся пустой строкой (отсутствующая серия совпадает
+    /// с отсутствующей серией — 5791-У, Приложение 2, прим. 4).
     /// </summary>
-    /// <param name="value">Raw field value; may be <see langword="null"/>.</param>
-    /// <returns>The normalized value; empty string when absent.</returns>
+    /// <param name="value">Исходное значение поля; может быть <see langword="null"/>.</param>
+    /// <returns>Нормализованное значение; пустая строка, если значение отсутствует.</returns>
     public static string NormalizeDocumentField(string? value) => NormalizeBasic(value);
 
     /// <summary>
-    /// Normalizes an INN or SNILS: strips every non-digit character (spec decision D2).
-    /// The literal value <c>"-"</c>, an empty string, or a value with no digits denotes an absent indicator.
+    /// Нормализует ИНН или СНИЛС: удаляет все нецифровые символы (решение по спецификации D2).
+    /// Литерал <c>"-"</c>, пустая строка или значение без цифр обозначают отсутствующий идентификатор.
     /// </summary>
-    /// <param name="value">Raw INN/SNILS value; may be <see langword="null"/>.</param>
-    /// <returns>Digits-only string, or <see langword="null"/> when the indicator is absent.</returns>
+    /// <param name="value">Исходное значение ИНН/СНИЛС; может быть <see langword="null"/>.</param>
+    /// <returns>Строка, состоящая только из цифр, либо <see langword="null"/>, если идентификатор отсутствует.</returns>
     public static string? NormalizeDigitsOnly(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -90,10 +92,10 @@ public static class PersonalDataNormalizer
     }
 
     /// <summary>
-    /// Serializes a date to the canonical <c>yyyy-MM-dd</c> form used in key preimages.
+    /// Сериализует дату в каноническую форму <c>yyyy-MM-dd</c>, используемую в прообразах ключей.
     /// </summary>
-    /// <param name="date">The date to serialize.</param>
-    /// <returns>The canonical string representation.</returns>
+    /// <param name="date">Дата для сериализации.</param>
+    /// <returns>Каноничное строковое представление даты.</returns>
     public static string FormatDate(DateOnly date) => date.ToString("yyyy-MM-dd");
 
     private static string NormalizeBasic(string? value)

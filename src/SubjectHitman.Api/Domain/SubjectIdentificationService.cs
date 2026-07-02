@@ -7,13 +7,13 @@ using SubjectHitman.Api.Infrastructure;
 namespace SubjectHitman.Api.Domain;
 
 /// <summary>
-/// Identifies a credit history subject in the local registry by the search keys derived
-/// from Directive 5791-U: finds an existing subject (creating one when absent), merges
-/// incoming personal data and recomputes search keys (technical spec, § 5.4–5.6).
+/// Идентифицирует субъекта кредитной истории в локальном реестре по поисковым ключам,
+/// построенным согласно Указанию 5791-У: находит существующего субъекта (создавая нового при отсутствии),
+/// объединяет входящие персональные данные и пересчитывает поисковые ключи (техническая спецификация, § 5.4–5.6).
 /// </summary>
-/// <param name="dbContext">Database context.</param>
-/// <param name="timeProvider">Time provider used for the subject creation timestamp.</param>
-/// <param name="logger">Logger.</param>
+/// <param name="dbContext">Контекст базы данных.</param>
+/// <param name="timeProvider">Источник времени, используемый для отметки создания субъекта.</param>
+/// <param name="logger">Логгер.</param>
 public class SubjectIdentificationService(
     AppDbContext dbContext,
     TimeProvider timeProvider,
@@ -22,15 +22,15 @@ public class SubjectIdentificationService(
     private const int MaxRetries = 1;
 
     /// <summary>
-    /// Identifies the subject described by <paramref name="data"/>: computes the request search keys,
-    /// looks up candidates, picks the winner by the conflict-resolution rules, merges personal data
-    /// and recomputes stored keys. Creates a new subject when nothing matches.
-    /// The whole operation runs in a serializable unit guarded by PostgreSQL advisory locks
-    /// on the request key hashes, and is retried once on a unique-constraint race.
+    /// Идентифицирует субъекта, описанного в <paramref name="data"/>: вычисляет поисковые ключи запроса,
+    /// ищет кандидатов, выбирает победителя по правилам разрешения конфликтов, объединяет персональные данные
+    /// и пересчитывает сохранённые ключи. Создаёт нового субъекта, если ничего не найдено.
+    /// Вся операция выполняется в сериализуемой единице, защищённой консультативными блокировками PostgreSQL
+    /// на хешах ключей запроса, и повторяется один раз при гонке по уникальному ограничению.
     /// </summary>
-    /// <param name="data">Raw subject personal data from the request or event.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The internal identifier of the identified or created subject.</returns>
+    /// <param name="data">Необработанные персональные данные субъекта из запроса или события.</param>
+    /// <param name="ct">Токен отмены.</param>
+    /// <returns>Внутренний идентификатор идентифицированного или созданного субъекта.</returns>
     public async Task<Guid> IdentifyAsync(SubjectData data, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(data);
@@ -151,13 +151,13 @@ public class SubjectIdentificationService(
     }
 
     /// <summary>
-    /// Resolves the winning candidate among several matched subjects (technical spec, § 5.4):
-    /// 1) the most matched keys; 2) the strongest matched keys — lexicographic comparison of the
-    /// ascending-sorted key type lists; 3) the oldest record.
+    /// Определяет победителя среди нескольких найденных субъектов (техническая спецификация, § 5.4):
+    /// 1) наибольшее количество совпавших ключей; 2) самые сильные совпавшие ключи — лексикографическое
+    /// сравнение списков типов ключей, отсортированных по возрастанию; 3) самая ранняя запись.
     /// </summary>
-    /// <param name="candidates">Matched key types per candidate subject (each list sorted ascending).</param>
-    /// <param name="createdAt">Creation timestamps of the candidate subjects.</param>
-    /// <returns>The identifier of the winning subject.</returns>
+    /// <param name="candidates">Типы совпавших ключей для каждого субъекта-кандидата (каждый список отсортирован по возрастанию).</param>
+    /// <param name="createdAt">Отметки времени создания субъектов-кандидатов.</param>
+    /// <returns>Идентификатор победившего субъекта.</returns>
     public static Guid ResolveWinner(
         IReadOnlyDictionary<Guid, List<SearchKeyType>> candidates,
         IReadOnlyDictionary<Guid, DateTimeOffset> createdAt)

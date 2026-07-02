@@ -1,8 +1,8 @@
 namespace SubjectHitman.Abstractions.Api;
 
 /// <summary>
-/// Response body of the external status API endpoint <c>GET /reports/{reportId}/status</c>.
+/// Тело ответа внешнего статусного API <c>GET /reports/{reportId}/status</c>.
 /// </summary>
-/// <param name="ReportId">Report order identifier.</param>
-/// <param name="Status">Current status of the report in the main system.</param>
+/// <param name="ReportId">Идентификатор заказа отчёта.</param>
+/// <param name="Status">Текущий статус отчёта в основной системе.</param>
 public record ReportStatusResponse(Guid ReportId, ReportStatus Status);

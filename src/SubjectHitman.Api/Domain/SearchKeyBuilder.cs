@@ -5,41 +5,41 @@ using SubjectHitman.Api.Domain.Entities;
 namespace SubjectHitman.Api.Domain;
 
 /// <summary>
-/// A computed search key value: its type and the SHA-256 hash of its canonical preimage.
+/// Вычисленное значение поискового ключа: его тип и SHA-256 хеш канонического прообраза.
 /// </summary>
-/// <param name="KeyType">Search key type (K1..K6).</param>
-/// <param name="Hash">32-byte SHA-256 hash.</param>
+/// <param name="KeyType">Тип поискового ключа (K1..K6).</param>
+/// <param name="Hash">32-байтовый SHA-256 хеш.</param>
 public readonly record struct SearchKeyValue(SearchKeyType KeyType, byte[] Hash)
 {
-    /// <summary>Compares by key type and hash content (not reference).</summary>
-    /// <param name="other">The other value.</param>
-    /// <returns><see langword="true"/> when the type and hash bytes are equal.</returns>
+    /// <summary>Сравнивает по типу ключа и содержимому хеша (не по ссылке).</summary>
+    /// <param name="other">Другое значение.</param>
+    /// <returns><see langword="true"/>, если тип и байты хеша равны.</returns>
     public bool Equals(SearchKeyValue other)
         => KeyType == other.KeyType && Hash.AsSpan().SequenceEqual(other.Hash);
 
-    /// <summary>Hash code derived from the key type and the hash prefix.</summary>
-    /// <returns>The hash code.</returns>
+    /// <summary>Хеш-код, вычисленный из типа ключа и префикса хеша.</summary>
+    /// <returns>Хеш-код.</returns>
     public override int GetHashCode()
         => HashCode.Combine(KeyType, Hash.Length >= 4 ? BitConverter.ToInt32(Hash, 0) : 0);
 }
 
 /// <summary>
-/// Computes the K1..K6 search keys of a subject from its normalized personal data
-/// (technical spec, § 5.3). The same code path serves incoming requests and stored subjects,
-/// guaranteeing hash comparability.
+/// Вычисляет поисковые ключи K1..K6 субъекта на основе его нормализованных персональных данных
+/// (техническая спецификация, § 5.3). Один и тот же код обрабатывает как входящие запросы,
+/// так и хранимых субъектов, гарантируя сопоставимость хешей.
 /// </summary>
 public static class SearchKeyBuilder
 {
     private const char Separator = '|';
 
     /// <summary>
-    /// Builds all computable search keys for the given normalized subject data.
-    /// Keys whose required indicators are absent are skipped. Multiplicity rules:
-    /// K1 — every name × every document; K2 — every distinct last name × every document;
-    /// K3, K4 — every document (K3 only for documents with an issue date); K5, K6 — scalar.
+    /// Строит все вычислимые поисковые ключи для заданных нормализованных данных субъекта.
+    /// Ключи, для которых отсутствуют обязательные показатели, пропускаются. Правила множественности:
+    /// K1 — каждое имя × каждый документ; K2 — каждая уникальная фамилия × каждый документ;
+    /// K3, K4 — каждый документ (K3 только для документов с датой выдачи); K5, K6 — скалярные.
     /// </summary>
-    /// <param name="subject">Normalized subject data.</param>
-    /// <returns>The distinct set of computed key values.</returns>
+    /// <param name="subject">Нормализованные данные субъекта.</param>
+    /// <returns>Уникальный набор вычисленных значений ключей.</returns>
     public static IReadOnlyCollection<SearchKeyValue> Build(NormalizedSubject subject)
     {
         ArgumentNullException.ThrowIfNull(subject);

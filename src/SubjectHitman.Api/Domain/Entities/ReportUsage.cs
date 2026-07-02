@@ -1,26 +1,26 @@
 namespace SubjectHitman.Api.Domain.Entities;
 
 /// <summary>
-/// Accounting record of a single ordered credit report.
-/// The <see cref="ReportId"/> primary key doubles as the idempotency key for saga events.
+/// Учётная запись одного заказанного кредитного отчёта.
+/// Первичный ключ <see cref="ReportId"/> также служит ключом идемпотентности для событий учёта.
 /// </summary>
 public class ReportUsage
 {
-    /// <summary>Report order identifier (from the <c>ReportOrdered</c> event).</summary>
+    /// <summary>Идентификатор заказа отчёта (из события <c>ReportOrdered</c>).</summary>
     public Guid ReportId { get; set; }
 
-    /// <summary>Identifier of the subject the report was ordered for.</summary>
+    /// <summary>Идентификатор субъекта, для которого был заказан отчёт.</summary>
     public Guid SubjectId { get; set; }
 
-    /// <summary>Whether the report is free of charge for the subject.</summary>
+    /// <summary>Признак того, что отчёт бесплатный для субъекта.</summary>
     public bool IsFree { get; set; }
 
-    /// <summary>Current accounting status of the report.</summary>
+    /// <summary>Текущий статус учёта отчёта.</summary>
     public ReportUsageStatus Status { get; set; }
 
-    /// <summary>Moment the report was ordered. Basis for calendar-year attribution and cooldown grouping.</summary>
+    /// <summary>Момент заказа отчёта. Основа для отнесения к календарному году и cooldown-группировки.</summary>
     public DateTimeOffset OrderedAt { get; set; }
 
-    /// <summary>Moment the accounting saga finished (charged or not charged); <see langword="null"/> while pending.</summary>
+    /// <summary>Момент завершения учёта (списан или не списан); <see langword="null"/> пока в ожидании.</summary>
     public DateTimeOffset? FinishedAt { get; set; }
 }

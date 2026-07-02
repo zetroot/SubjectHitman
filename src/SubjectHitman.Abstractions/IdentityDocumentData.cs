@@ -1,14 +1,14 @@
 namespace SubjectHitman.Abstractions;
 
 /// <summary>
-/// Identity document (ДУЛ — документ, удостоверяющий личность) of a credit history subject
-/// as received from an external system.
+/// Документ, удостоверяющий личность (ДУЛ) субъекта кредитной истории,
+/// полученный от внешней системы.
 /// </summary>
-/// <param name="TypeCode">Document type code per the Bank of Russia classifier. Required.</param>
-/// <param name="Series">Document series. Optional: some document types have no series.</param>
-/// <param name="Number">Document number. Required.</param>
+/// <param name="TypeCode">Код вида документа по классификатору Банка России. Обязательное поле.</param>
+/// <param name="Series">Серия документа. Необязательное поле: у некоторых видов документов серии нет.</param>
+/// <param name="Number">Номер документа. Обязательное поле.</param>
 /// <param name="IssueDate">
-/// Document issue date. Required for the current document of the subject;
-/// may be absent for a previous document (see technical spec, decision D1).
+/// Дата выдачи документа. Обязательна для текущего документа субъекта;
+/// может отсутствовать для предыдущего документа (см. техническую спецификацию, решение D1).
 /// </param>
 public record IdentityDocumentData(string TypeCode, string? Series, string Number, DateOnly? IssueDate);

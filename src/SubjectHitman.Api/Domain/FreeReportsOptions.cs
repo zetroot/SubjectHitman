@@ -3,22 +3,22 @@ using System.ComponentModel.DataAnnotations;
 namespace SubjectHitman.Api.Domain;
 
 /// <summary>
-/// Settings of the free report counting logic.
+/// Настройки логики подсчёта бесплатных отчётов.
 /// </summary>
 public class FreeReportsOptions
 {
-    /// <summary>Configuration section name.</summary>
+    /// <summary>Имя секции конфигурации.</summary>
     public const string SectionName = "FreeReports";
 
     /// <summary>
-    /// Cooldown period: free reports charged within this interval from the first report of a group
-    /// are counted as a single report (duplicate-order protection).
+    /// Период кулдауна: бесплатные отчёты, предоставленные в пределах этого интервала от первого отчёта группы,
+    /// считаются как один отчёт (защита от дублирующих заказов).
     /// </summary>
     [Range(typeof(TimeSpan), "00:00:01", "365.00:00:00")]
     public TimeSpan CooldownPeriod { get; set; } = TimeSpan.FromDays(1);
 
     /// <summary>
-    /// IANA identifier of the time zone in which calendar-year boundaries are calculated.
+    /// Идентификатор IANA часового пояса, в котором рассчитываются границы календарного года.
     /// </summary>
     [Required]
     public string TimeZone { get; set; } = "Europe/Moscow";

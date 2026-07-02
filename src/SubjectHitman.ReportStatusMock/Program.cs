@@ -36,7 +36,7 @@ app.MapHealthChecks("/health");
 app.Run();
 
 /// <summary>
-/// Request body of the mock control endpoint <c>PUT /reports/{reportId}/status</c>.
+/// Тело запроса управляющего эндпоинта мока <c>PUT /reports/{reportId}/status</c>.
 /// </summary>
-/// <param name="Status">The status the mock should report for the given report.</param>
+/// <param name="Status">Статус, который мок должен возвращать для указанного отчёта.</param>
 public record SetStatusRequest(ReportStatus Status);

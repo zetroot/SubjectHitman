@@ -1,17 +1,17 @@
 namespace SubjectHitman.Abstractions;
 
 /// <summary>
-/// Status of a report in the main report-processing system,
-/// as returned by the external status API (queried in the saga timeout branch).
+/// Статус отчёта в основной системе обработки отчётов,
+/// возвращаемый внешним API статуса (запрашивается в timeout-ветке саги).
 /// </summary>
 public enum ReportStatus
 {
-    /// <summary>The status could not be determined (also used for transport errors and timeouts).</summary>
+    /// <summary>Статус не удалось определить (используется также при ошибках транспорта и таймаутах).</summary>
     Unknown = 0,
 
-    /// <summary>The report was produced successfully and delivered to the client.</summary>
+    /// <summary>Отчёт успешно изготовлен и предоставлен клиенту.</summary>
     Success = 1,
 
-    /// <summary>The report production failed.</summary>
+    /// <summary>Изготовление отчёта завершилось неуспешно.</summary>
     Failed = 2,
 }

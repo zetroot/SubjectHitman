@@ -16,6 +16,7 @@
     <PackageReference Include="WolverineFx.Http" Version="6.16.0" />
     <PackageReference Include="WolverineFx.Postgresql" Version="6.16.0" />
     <PackageReference Include="WolverineFx.RabbitMQ" Version="6.16.0" />
+    <PackageReference Include="WolverineFx.RuntimeCompilation" Version="6.16.0" />
   </ItemGroup>
 
 </Project>

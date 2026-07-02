@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SubjectHitman.Abstractions;
+using SubjectHitman.Abstractions.Messages;
 using SubjectHitman.Api.Domain;
 using SubjectHitman.Api.Infrastructure;
 using SubjectHitman.Api.Sagas;

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SubjectHitman.Abstractions/SubjectHitman.Abstractions.csproj" />
+    <Project Path="src/SubjectHitman.Api/SubjectHitman.Api.csproj" />
+    <Project Path="src/SubjectHitman.ReportStatusMock/SubjectHitman.ReportStatusMock.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/SubjectHitman.IntegrationTests/SubjectHitman.IntegrationTests.csproj" />
+    <Project Path="test/SubjectHitman.UnitTests/SubjectHitman.UnitTests.csproj" />
+  </Folder>
+</Solution>

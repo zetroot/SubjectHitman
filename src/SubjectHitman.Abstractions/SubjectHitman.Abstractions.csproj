@@ -1,0 +1,7 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Integration contracts (messages, DTOs, external client abstractions) of the SubjectHitman component.</Description>
+  </PropertyGroup>
+
+</Project>

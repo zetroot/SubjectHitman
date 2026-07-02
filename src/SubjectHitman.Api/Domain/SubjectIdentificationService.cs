@@ -138,21 +138,39 @@ public class SubjectIdentificationService(
             .Select(s => new { s.Id, s.CreatedAt })
             .ToDictionaryAsync(s => s.Id, s => s.CreatedAt, ct);
 
-        // 1) most matched keys; 2) strongest keys (lexicographic on sorted key types); 3) oldest record.
-        var winner = candidates
-            .OrderByDescending(c => c.Value.Count)
-            .ThenBy(c => string.Join(",", c.Value.Select(t => (int)t)), StringComparer.Ordinal)
-            .ThenBy(c => createdAt[c.Key])
-            .First();
+        var winner = ResolveWinner(candidates, createdAt);
 
         logger.LogInformation(
             "Ambiguous identification resolved: {CandidateCount} candidates, winner {SubjectId} with {MatchCount} matched keys [{KeyTypes}]",
             candidates.Count,
-            winner.Key,
-            winner.Value.Count,
-            string.Join(",", winner.Value));
+            winner,
+            candidates[winner].Count,
+            string.Join(",", candidates[winner]));
 
-        return winner.Key;
+        return winner;
+    }
+
+    /// <summary>
+    /// Resolves the winning candidate among several matched subjects (technical spec, § 5.4):
+    /// 1) the most matched keys; 2) the strongest matched keys — lexicographic comparison of the
+    /// ascending-sorted key type lists; 3) the oldest record.
+    /// </summary>
+    /// <param name="candidates">Matched key types per candidate subject (each list sorted ascending).</param>
+    /// <param name="createdAt">Creation timestamps of the candidate subjects.</param>
+    /// <returns>The identifier of the winning subject.</returns>
+    public static Guid ResolveWinner(
+        IReadOnlyDictionary<Guid, List<SearchKeyType>> candidates,
+        IReadOnlyDictionary<Guid, DateTimeOffset> createdAt)
+    {
+        ArgumentNullException.ThrowIfNull(candidates);
+        ArgumentNullException.ThrowIfNull(createdAt);
+
+        return candidates
+            .OrderByDescending(c => c.Value.Count)
+            .ThenBy(c => string.Join(",", c.Value.Select(t => (int)t)), StringComparer.Ordinal)
+            .ThenBy(c => createdAt[c.Key])
+            .First()
+            .Key;
     }
 
     private async Task<Guid> CreateSubjectAsync(NormalizedSubject normalized, CancellationToken ct)

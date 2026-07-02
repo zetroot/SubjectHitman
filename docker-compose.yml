@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: subject_hitman
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d subject_hitman"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  status-mock:
+    build:
+      context: .
+      dockerfile: src/SubjectHitman.ReportStatusMock/Dockerfile
+    ports:
+      - "5100:8080"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=subject_hitman;Username=app;Password=app
+      ConnectionStrings__RabbitMq: amqp://guest:guest@rabbitmq:5672
+      ReportStatusApi__BaseUrl: http://status-mock:8080
+      Saga__Timeout: "00:30:00"
+      Saga__MaxTimeoutRetries: "5"
+      FreeReports__CooldownPeriod: "1.00:00:00"
+      FreeReports__TimeZone: Europe/Moscow
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy

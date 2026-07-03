@@ -29,34 +29,33 @@ public class SearchKeyBuilderTests
     public void FullData_ProducesAllSixKeyTypes()
     {
         var keys = Build(FullData());
-        Assert.Equal(
-            new[] { SearchKeyType.K1, SearchKeyType.K2, SearchKeyType.K3, SearchKeyType.K4, SearchKeyType.K5, SearchKeyType.K6 },
-            keys.Select(k => k.KeyType).Distinct().OrderBy(t => t).ToArray());
-        Assert.Equal(6, keys.Count);
+        keys.Select(k => k.KeyType).Distinct().OrderBy(t => t)
+            .ShouldBe([SearchKeyType.K1, SearchKeyType.K2, SearchKeyType.K3, SearchKeyType.K4, SearchKeyType.K5, SearchKeyType.K6]);
+        keys.Count.ShouldBe(6);
     }
 
     [Fact]
     public void NoInn_SkipsK3AndK6()
     {
         var keys = Build(FullData(inn: null));
-        Assert.DoesNotContain(keys, k => k.KeyType == SearchKeyType.K3);
-        Assert.DoesNotContain(keys, k => k.KeyType == SearchKeyType.K6);
+        keys.ShouldNotContain(k => k.KeyType == SearchKeyType.K3);
+        keys.ShouldNotContain(k => k.KeyType == SearchKeyType.K6);
     }
 
     [Fact]
     public void DashInn_TreatedAsAbsent()
     {
         var keys = Build(FullData(inn: "-"));
-        Assert.DoesNotContain(keys, k => k.KeyType == SearchKeyType.K3);
-        Assert.DoesNotContain(keys, k => k.KeyType == SearchKeyType.K6);
+        keys.ShouldNotContain(k => k.KeyType == SearchKeyType.K3);
+        keys.ShouldNotContain(k => k.KeyType == SearchKeyType.K6);
     }
 
     [Fact]
     public void NoSnils_SkipsK4AndK5()
     {
         var keys = Build(FullData(snils: null));
-        Assert.DoesNotContain(keys, k => k.KeyType == SearchKeyType.K4);
-        Assert.DoesNotContain(keys, k => k.KeyType == SearchKeyType.K5);
+        keys.ShouldNotContain(k => k.KeyType == SearchKeyType.K4);
+        keys.ShouldNotContain(k => k.KeyType == SearchKeyType.K5);
     }
 
     [Fact]
@@ -66,26 +65,26 @@ public class SearchKeyBuilderTests
         var keys = Build(FullData(previousDocument: prevDoc));
 
         // Two documents -> two K1, two K2, two K4; only one K3 (prev doc has no issue date).
-        Assert.Equal(2, keys.Count(k => k.KeyType == SearchKeyType.K1));
-        Assert.Equal(2, keys.Count(k => k.KeyType == SearchKeyType.K2));
-        Assert.Equal(2, keys.Count(k => k.KeyType == SearchKeyType.K4));
-        Assert.Equal(1, keys.Count(k => k.KeyType == SearchKeyType.K3));
+        keys.Count(k => k.KeyType == SearchKeyType.K1).ShouldBe(2);
+        keys.Count(k => k.KeyType == SearchKeyType.K2).ShouldBe(2);
+        keys.Count(k => k.KeyType == SearchKeyType.K4).ShouldBe(2);
+        keys.Count(k => k.KeyType == SearchKeyType.K3).ShouldBe(1);
     }
 
     [Fact]
     public void PreviousName_MultipliesK1AndK2()
     {
         var keys = Build(FullData(previousName: new PersonNameData("Петров", "Иван", "Иванович")));
-        Assert.Equal(2, keys.Count(k => k.KeyType == SearchKeyType.K1)); // 2 names x 1 doc
-        Assert.Equal(2, keys.Count(k => k.KeyType == SearchKeyType.K2)); // 2 distinct last names x 1 doc
+        keys.Count(k => k.KeyType == SearchKeyType.K1).ShouldBe(2); // 2 names x 1 doc
+        keys.Count(k => k.KeyType == SearchKeyType.K2).ShouldBe(2); // 2 distinct last names x 1 doc
     }
 
     [Fact]
     public void SameLastNameInPreviousName_DoesNotDuplicateK2()
     {
         var keys = Build(FullData(previousName: new PersonNameData("Иванов", "Пётр", "Иванович")));
-        Assert.Equal(2, keys.Count(k => k.KeyType == SearchKeyType.K1)); // different first names
-        Assert.Equal(1, keys.Count(k => k.KeyType == SearchKeyType.K2)); // same last name -> one key
+        keys.Count(k => k.KeyType == SearchKeyType.K1).ShouldBe(2); // different first names
+        keys.Count(k => k.KeyType == SearchKeyType.K2).ShouldBe(1); // same last name -> one key
     }
 
     [Fact]
@@ -103,9 +102,8 @@ public class SearchKeyBuilderTests
             Inn: " 500-100-732-259 ",
             Snils: "11223344595"));
 
-        Assert.Equal(
-            canonical.OrderBy(k => k.KeyType).Select(k => Convert.ToHexString(k.Hash)),
-            messy.OrderBy(k => k.KeyType).Select(k => Convert.ToHexString(k.Hash)));
+        canonical.OrderBy(k => k.KeyType).Select(k => Convert.ToHexString(k.Hash))
+            .ShouldBe(messy.OrderBy(k => k.KeyType).Select(k => Convert.ToHexString(k.Hash)));
     }
 
     [Fact]
@@ -114,9 +112,8 @@ public class SearchKeyBuilderTests
         // "Иванoв" with latin 'o' must hash identically to pure Cyrillic "Иванов".
         var latin = Build(FullData() with { LastName = "Иванoв" });
         var cyrillic = Build(FullData() with { LastName = "Иванов" });
-        Assert.Equal(
-            cyrillic.Select(k => Convert.ToHexString(k.Hash)).OrderBy(h => h),
-            latin.Select(k => Convert.ToHexString(k.Hash)).OrderBy(h => h));
+        cyrillic.Select(k => Convert.ToHexString(k.Hash)).OrderBy(h => h)
+            .ShouldBe(latin.Select(k => Convert.ToHexString(k.Hash)).OrderBy(h => h));
     }
 
     [Fact]
@@ -124,9 +121,8 @@ public class SearchKeyBuilderTests
     {
         var withNull = Build(FullData() with { MiddleName = null });
         var withDash = Build(FullData() with { MiddleName = "-" });
-        Assert.Equal(
-            withDash.Select(k => Convert.ToHexString(k.Hash)).OrderBy(h => h),
-            withNull.Select(k => Convert.ToHexString(k.Hash)).OrderBy(h => h));
+        withDash.Select(k => Convert.ToHexString(k.Hash)).OrderBy(h => h)
+            .ShouldBe(withNull.Select(k => Convert.ToHexString(k.Hash)).OrderBy(h => h));
     }
 
     [Fact]
@@ -134,9 +130,8 @@ public class SearchKeyBuilderTests
     {
         var a = Build(FullData() with { Document = new IdentityDocumentData("21", null, "123456", new DateOnly(2010, 5, 20)) });
         var b = Build(FullData() with { Document = new IdentityDocumentData("21", "", "123456", new DateOnly(2010, 5, 20)) });
-        Assert.Equal(
-            a.Select(k => Convert.ToHexString(k.Hash)).OrderBy(h => h),
-            b.Select(k => Convert.ToHexString(k.Hash)).OrderBy(h => h));
+        a.Select(k => Convert.ToHexString(k.Hash)).OrderBy(h => h)
+            .ShouldBe(b.Select(k => Convert.ToHexString(k.Hash)).OrderBy(h => h));
     }
 
     [Fact]
@@ -148,10 +143,34 @@ public class SearchKeyBuilderTests
         var keys = Build(data);
         var k5 = keys.Single(k => k.KeyType == SearchKeyType.K5);
         var k6 = keys.Single(k => k.KeyType == SearchKeyType.K6);
-        Assert.NotEqual(Convert.ToHexString(k5.Hash), Convert.ToHexString(k6.Hash));
+        Convert.ToHexString(k5.Hash).ShouldNotBe(Convert.ToHexString(k6.Hash));
     }
 
     [Fact]
     public void Hashes_Are32Bytes()
-        => Assert.All(Build(FullData()), k => Assert.Equal(32, k.Hash.Length));
+        => Build(FullData()).ShouldAllBe(k => k.Hash.Length == 32);
+
+    /// <summary>
+    /// § 5.3: хранимый субъект без даты рождения (edge case — миграция или ручная вставка)
+    /// пропускает ключи K2, K5, K6. Тест через NormalizedSubject напрямую,
+    /// так как API-контракт SubjectData требует BirthDate обязательным (D1).
+    /// </summary>
+    [Fact]
+    public void StoredSubjectWithoutBirthDate_SkipsK2K5K6()
+    {
+        var subject = NormalizedSubject.FromStored(
+            [new NormalizedName("ИВАНОВ", "ИВАН", "ИВАНОВИЧ")],
+            [new NormalizedDocument("21", "4510", "123456", new DateOnly(2010, 5, 20))],
+            birthDate: null,
+            inn: "500100732259",
+            snils: "11223344595");
+        var keys = SearchKeyBuilder.Build(subject);
+
+        keys.ShouldNotContain(k => k.KeyType == SearchKeyType.K2);
+        keys.ShouldNotContain(k => k.KeyType == SearchKeyType.K5);
+        keys.ShouldNotContain(k => k.KeyType == SearchKeyType.K6);
+        keys.ShouldContain(k => k.KeyType == SearchKeyType.K1);
+        keys.ShouldContain(k => k.KeyType == SearchKeyType.K3);
+        keys.ShouldContain(k => k.KeyType == SearchKeyType.K4);
+    }
 }

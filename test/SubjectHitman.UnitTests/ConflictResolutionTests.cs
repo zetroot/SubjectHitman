@@ -21,7 +21,7 @@ public class ConflictResolutionTests
             },
             new Dictionary<Guid, DateTimeOffset> { [SubjectA] = Older, [SubjectB] = Newer });
 
-        Assert.Equal(SubjectB, winner);
+        winner.ShouldBe(SubjectB);
     }
 
     [Fact]
@@ -36,7 +36,7 @@ public class ConflictResolutionTests
             new Dictionary<Guid, DateTimeOffset> { [SubjectA] = Older, [SubjectB] = Newer });
 
         // B matched K1 which is stronger than A's best K2.
-        Assert.Equal(SubjectB, winner);
+        winner.ShouldBe(SubjectB);
     }
 
     [Fact]
@@ -50,7 +50,7 @@ public class ConflictResolutionTests
             },
             new Dictionary<Guid, DateTimeOffset> { [SubjectA] = Newer, [SubjectB] = Older });
 
-        Assert.Equal(SubjectB, winner);
+        winner.ShouldBe(SubjectB);
     }
 
     [Fact]
@@ -60,6 +60,6 @@ public class ConflictResolutionTests
             new Dictionary<Guid, List<SearchKeyType>> { [SubjectA] = [SearchKeyType.K6] },
             new Dictionary<Guid, DateTimeOffset> { [SubjectA] = Older });
 
-        Assert.Equal(SubjectA, winner);
+        winner.ShouldBe(SubjectA);
     }
 }

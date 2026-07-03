@@ -9,14 +9,14 @@ public class PersonalDataNormalizerTests
     [InlineData("  иванов  ", "ИВАНОВ")]
     [InlineData("Иванов   Петров", "ИВАНОВ ПЕТРОВ")]
     public void NormalizeNameComponent_TrimsCollapsesAndUppercases(string input, string expected)
-        => Assert.Equal(expected, PersonalDataNormalizer.NormalizeNameComponent(input));
+        => PersonalDataNormalizer.NormalizeNameComponent(input).ShouldBe(expected);
 
     [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
     public void NormalizeNameComponent_AbsentValue_ReturnsDash(string? input)
-        => Assert.Equal("-", PersonalDataNormalizer.NormalizeNameComponent(input));
+        => PersonalDataNormalizer.NormalizeNameComponent(input).ShouldBe("-");
 
     [Theory]
     // Latin letters visually identical to Cyrillic are transliterated (5791-U note 2).
@@ -24,12 +24,12 @@ public class PersonalDataNormalizerTests
     [InlineData("Иванoва", "ИВАНОВА")] // latin 'o' inside a Cyrillic word
     [InlineData("Cмирнов", "СМИРНОВ")] // latin 'C' at the start
     public void NormalizeNameComponent_TransliteratesLatinLookalikes(string input, string expected)
-        => Assert.Equal(expected, PersonalDataNormalizer.NormalizeNameComponent(input));
+        => PersonalDataNormalizer.NormalizeNameComponent(input).ShouldBe(expected);
 
     [Fact]
     public void NormalizeNameComponent_KeepsNonLookalikeLatinAsIs()
         // S, I, D, N, G, R, W, U, Z, F, L, Q are not visually identical to Cyrillic and stay latin.
-        => Assert.Equal("SIDNGRWUZFLQ", PersonalDataNormalizer.NormalizeNameComponent("sidngrwuzflq"));
+        => PersonalDataNormalizer.NormalizeNameComponent("sidngrwuzflq").ShouldBe("SIDNGRWUZFLQ");
 
     [Theory]
     [InlineData(null, "")]
@@ -37,7 +37,7 @@ public class PersonalDataNormalizerTests
     [InlineData(" 45 10 ", "45 10")]
     [InlineData("iv-ab", "IV-AB")]
     public void NormalizeDocumentField_Normalizes(string? input, string expected)
-        => Assert.Equal(expected, PersonalDataNormalizer.NormalizeDocumentField(input));
+        => PersonalDataNormalizer.NormalizeDocumentField(input).ShouldBe(expected);
 
     [Theory]
     [InlineData("500100732259", "500100732259")]
@@ -47,9 +47,36 @@ public class PersonalDataNormalizerTests
     [InlineData(null, null)]
     [InlineData("  ", null)]
     public void NormalizeDigitsOnly_StripsNonDigits_AbsentReturnsNull(string? input, string? expected)
-        => Assert.Equal(expected, PersonalDataNormalizer.NormalizeDigitsOnly(input));
+        => PersonalDataNormalizer.NormalizeDigitsOnly(input).ShouldBe(expected);
 
     [Fact]
     public void FormatDate_UsesCanonicalForm()
-        => Assert.Equal("1990-01-05", PersonalDataNormalizer.FormatDate(new DateOnly(1990, 1, 5)));
+        => PersonalDataNormalizer.FormatDate(new DateOnly(1990, 1, 5)).ShouldBe("1990-01-05");
+
+    /// <summary>
+    /// § 5.1: decomposed Unicode (NFC-несовместимый) нормализуется в composed форму.
+    /// «Ё» как U+0415 + U+0308 должно совпадать с предкомпонованным U+0401.
+    /// </summary>
+    [Fact]
+    public void DecomposedUnicode_IsNormalizedToComposedForm()
+    {
+        // "Ё" composed: U+0401
+        var composed = "Ёлкин";
+        // "E" + combining diaeresis = decomposed "Ё": U+0415 U+0308
+        var decomposed = "\u0415\u0308лкин";
+
+        PersonalDataNormalizer.NormalizeNameComponent(decomposed)
+            .ShouldBe(PersonalDataNormalizer.NormalizeNameComponent(composed));
+        PersonalDataNormalizer.NormalizeNameComponent(decomposed).ShouldBe("ЁЛКИН");
+    }
+
+    /// <summary>
+    /// § 5.1: leading и inner whitespace схлопываются, trailing обрезается.
+    /// </summary>
+    [Theory]
+    [InlineData("  Иванов   Пётр ", "ИВАНОВ ПЁТР")]
+    [InlineData("\tИванов\nПётр", "ИВАНОВ ПЁТР")]
+    [InlineData("Иванов", "ИВАНОВ")]
+    public void Whitespace_LeadingCollapsed_TrailingTrimmed(string input, string expected)
+        => PersonalDataNormalizer.NormalizeNameComponent(input).ShouldBe(expected);
 }

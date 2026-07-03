@@ -56,9 +56,9 @@ public class ReportAccountingSagaTests(IntegrationTestFixture fixture)
         await bus.InvokeAsync(new ReportCompleted(reportId, DateTimeOffset.UtcNow), TestContext.Current.CancellationToken);
 
         var usage = await WaitForStatusAsync(reportId, ReportUsageStatus.Charged, TimeSpan.FromSeconds(10));
-        Assert.NotNull(usage);
-        Assert.True(usage.IsFree);
-        Assert.NotNull(usage.FinishedAt);
+        usage.ShouldNotBeNull();
+        usage.IsFree.ShouldBeTrue();
+        usage.FinishedAt.ShouldNotBeNull();
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public class ReportAccountingSagaTests(IntegrationTestFixture fixture)
         await bus.InvokeAsync(new ReportFailed(reportId, DateTimeOffset.UtcNow, "processing error"), TestContext.Current.CancellationToken);
 
         var usage = await WaitForStatusAsync(reportId, ReportUsageStatus.NotCharged, TimeSpan.FromSeconds(10));
-        Assert.NotNull(usage);
+        usage.ShouldNotBeNull();
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public class ReportAccountingSagaTests(IntegrationTestFixture fixture)
         await bus.InvokeAsync(new ReportOrdered(reportId, DateTimeOffset.UtcNow, IsFree: true, subject), TestContext.Current.CancellationToken);
         await bus.InvokeAsync(new ReportCompleted(reportId, DateTimeOffset.UtcNow), TestContext.Current.CancellationToken);
         var usage = await WaitForStatusAsync(reportId, ReportUsageStatus.Charged, TimeSpan.FromSeconds(10));
-        Assert.NotNull(usage);
+        usage.ShouldNotBeNull();
 
         // A late duplicate ReportOrdered may start a new saga instance, but the usage record
         // is keyed by reportId: status and subject must stay unchanged.
@@ -94,8 +94,8 @@ public class ReportAccountingSagaTests(IntegrationTestFixture fixture)
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var after = await db.ReportUsages.AsNoTracking()
             .SingleAsync(r => r.ReportId == reportId, TestContext.Current.CancellationToken);
-        Assert.Equal(ReportUsageStatus.Charged, after.Status);
-        Assert.Equal(usage.SubjectId, after.SubjectId);
+        after.Status.ShouldBe(ReportUsageStatus.Charged);
+        after.SubjectId.ShouldBe(usage.SubjectId);
     }
 
     [Fact]
@@ -115,7 +115,7 @@ public class ReportAccountingSagaTests(IntegrationTestFixture fixture)
 
         // Saga:Timeout is 2s in the fixture; the scheduled check resolves via the stub.
         var usage = await WaitForStatusAsync(reportId, ReportUsageStatus.Charged, TimeSpan.FromSeconds(30));
-        Assert.NotNull(usage);
+        usage.ShouldNotBeNull();
     }
 
     [Fact]
@@ -127,7 +127,7 @@ public class ReportAccountingSagaTests(IntegrationTestFixture fixture)
         await Bus().InvokeAsync(new ReportOrdered(reportId, DateTimeOffset.UtcNow, IsFree: true, NewSubject()), TestContext.Current.CancellationToken);
 
         var usage = await WaitForStatusAsync(reportId, ReportUsageStatus.NotCharged, TimeSpan.FromSeconds(30));
-        Assert.NotNull(usage);
+        usage.ShouldNotBeNull();
     }
 
     [Fact]
@@ -145,8 +145,8 @@ public class ReportAccountingSagaTests(IntegrationTestFixture fixture)
         await bus.InvokeAsync(new ReportOrdered(secondId, now, IsFree: true, subject), TestContext.Current.CancellationToken);
         await bus.InvokeAsync(new ReportCompleted(secondId, now), TestContext.Current.CancellationToken);
 
-        Assert.NotNull(await WaitForStatusAsync(firstId, ReportUsageStatus.Charged, TimeSpan.FromSeconds(10)));
-        Assert.NotNull(await WaitForStatusAsync(secondId, ReportUsageStatus.Charged, TimeSpan.FromSeconds(10)));
+        (await WaitForStatusAsync(firstId, ReportUsageStatus.Charged, TimeSpan.FromSeconds(10))).ShouldNotBeNull();
+        (await WaitForStatusAsync(secondId, ReportUsageStatus.Charged, TimeSpan.FromSeconds(10))).ShouldNotBeNull();
 
         var client = fixture.Factory.CreateClient();
         var response = await client.PostAsJsonAsync(
@@ -158,7 +158,53 @@ public class ReportAccountingSagaTests(IntegrationTestFixture fixture)
         var body = await response.Content.ReadFromJsonAsync<Abstractions.Api.UsageQueryResponse>(
             TestContext.Current.CancellationToken);
 
-        Assert.NotNull(body);
-        Assert.Equal(2, body.UsedFreeReportsCount);
+        body.ShouldNotBeNull();
+        body.UsedFreeReportsCount.ShouldBe(2);
+    }
+
+    /// <summary>
+    /// US-3: зависший отчёт, статус-API возвращает Failed — учитывается как не списанный.
+    /// </summary>
+    [Fact]
+    public async Task Timeout_StatusFailed_AccountsAsNotCharged()
+    {
+        var reportId = Guid.NewGuid();
+        fixture.StatusStub.SetStatus(reportId, ReportStatus.Failed);
+
+        await Bus().InvokeAsync(new ReportOrdered(reportId, DateTimeOffset.UtcNow, IsFree: true, NewSubject()), TestContext.Current.CancellationToken);
+
+        var usage = await WaitForStatusAsync(reportId, ReportUsageStatus.NotCharged, TimeSpan.FromSeconds(30));
+        usage.ShouldNotBeNull();
+    }
+
+    /// <summary>
+    /// US-3: первая проверка через статус-API — Unknown, но вторая — Success.
+    /// Отчёт списывается после перепланирования.
+    /// </summary>
+    [Fact]
+    public async Task Timeout_UnknownThenSuccess_ResolvesOnRecheck()
+    {
+        var reportId = Guid.NewGuid();
+        // Stub: Unknown by default for the first check.
+        // After a delay, set it to Success so the recheck resolves.
+        fixture.StatusStub.SetStatus(reportId, ReportStatus.Unknown);
+
+        await Bus().InvokeAsync(new ReportOrdered(reportId, DateTimeOffset.UtcNow, IsFree: true, NewSubject()), TestContext.Current.CancellationToken);
+
+        // Wait for the first check to fire (2s timeout + processing), then switch the stub.
+        await Task.Delay(3_000, TestContext.Current.CancellationToken);
+        fixture.StatusStub.SetStatus(reportId, ReportStatus.Success);
+
+        var usage = await WaitForStatusAsync(reportId, ReportUsageStatus.Charged, TimeSpan.FromSeconds(30));
+        usage.ShouldNotBeNull();
+    }
+
+    /// <summary>
+    /// Q2: ReportFailed для неизвестного reportId подтверждается и отбрасывается.
+    /// </summary>
+    [Fact]
+    public async Task OrphanFailed_IsDiscardedWithoutError()
+    {
+        await Bus().InvokeAsync(new ReportFailed(Guid.NewGuid(), DateTimeOffset.UtcNow, "stale event"), TestContext.Current.CancellationToken);
     }
 }

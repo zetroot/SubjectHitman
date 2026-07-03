@@ -27,11 +27,11 @@ public class UsageQueryEndpointTests(IntegrationTestFixture fixture)
 
         var response = await client.PostAsJsonAsync("/api/v1/free-reports/usage-query", request, TestContext.Current.CancellationToken);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var body = await response.Content.ReadFromJsonAsync<UsageQueryResponse>(TestContext.Current.CancellationToken);
-        Assert.NotNull(body);
-        Assert.NotEqual(Guid.Empty, body.SubjectId);
-        Assert.Equal(0, body.UsedFreeReportsCount);
+        body.ShouldNotBeNull();
+        body.SubjectId.ShouldNotBe(Guid.Empty);
+        body.UsedFreeReportsCount.ShouldBe(0);
     }
 
     [Fact]
@@ -45,9 +45,9 @@ public class UsageQueryEndpointTests(IntegrationTestFixture fixture)
         var second = await (await client.PostAsJsonAsync("/api/v1/free-reports/usage-query", request, TestContext.Current.CancellationToken))
             .Content.ReadFromJsonAsync<UsageQueryResponse>(TestContext.Current.CancellationToken);
 
-        Assert.NotNull(first);
-        Assert.NotNull(second);
-        Assert.Equal(first.SubjectId, second.SubjectId);
+        first.ShouldNotBeNull();
+        second.ShouldNotBeNull();
+        first.SubjectId.ShouldBe(second.SubjectId);
     }
 
     [Fact]
@@ -71,9 +71,40 @@ public class UsageQueryEndpointTests(IntegrationTestFixture fixture)
                 TestContext.Current.CancellationToken))
             .Content.ReadFromJsonAsync<UsageQueryResponse>(TestContext.Current.CancellationToken);
 
-        Assert.NotNull(first);
-        Assert.NotNull(second);
-        Assert.Equal(first.SubjectId, second.SubjectId);
+        first.ShouldNotBeNull();
+        second.ShouldNotBeNull();
+        first.SubjectId.ShouldBe(second.SubjectId);
+    }
+
+    /// <summary>
+    /// § 5.4: два субъекта с общим документом, но разными идентификаторами (INN vs SNILS)
+    /// разрешаются корректно — каждый последующий запрос с теми же данными возвращает
+    /// того же субъекта. Логика разрешения конфликта протестирована в ConflictResolutionTests.
+    /// </summary>
+    [Fact]
+    public async Task TwoSubjectsWithSharedDocument_ResolveConsistently()
+    {
+        var client = fixture.Factory.CreateClient();
+        var sharedDocNumber = Guid.NewGuid().ToString("N")[..6];
+        var innValue = "500100732259";
+        var snilsValue = "11223344595";
+
+        var reqA = NewRequest(lastName: "Петров", number: sharedDocNumber) with { Inn = innValue };
+        var idA = (await (await client.PostAsJsonAsync(
+                "/api/v1/free-reports/usage-query", reqA, TestContext.Current.CancellationToken))
+            .Content.ReadFromJsonAsync<UsageQueryResponse>(TestContext.Current.CancellationToken))!.SubjectId;
+
+        var reqB = NewRequest(lastName: "Сидоров", number: sharedDocNumber) with { Snils = snilsValue };
+        var idB = (await (await client.PostAsJsonAsync(
+                "/api/v1/free-reports/usage-query", reqB, TestContext.Current.CancellationToken))
+            .Content.ReadFromJsonAsync<UsageQueryResponse>(TestContext.Current.CancellationToken))!.SubjectId;
+
+        idA.ShouldNotBe(idB);
+
+        var recheckId = (await (await client.PostAsJsonAsync(
+                "/api/v1/free-reports/usage-query", reqA, TestContext.Current.CancellationToken))
+            .Content.ReadFromJsonAsync<UsageQueryResponse>(TestContext.Current.CancellationToken))!.SubjectId;
+        recheckId.ShouldBe(idA);
     }
 
     [Fact]
@@ -84,8 +115,8 @@ public class UsageQueryEndpointTests(IntegrationTestFixture fixture)
 
         var response = await client.PostAsJsonAsync("/api/v1/free-reports/usage-query", request, TestContext.Current.CancellationToken);
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
-        Assert.Contains("lastName", body, StringComparison.OrdinalIgnoreCase);
+        body.ShouldContain("lastName");
     }
 }

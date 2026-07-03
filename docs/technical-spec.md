@@ -2,10 +2,11 @@
 
 | Атрибут | Значение |
 |---|---|
-| Статус | Ready for development |
+| Статус | **Implemented** (as-built, актуализировано по коду) |
 | Автор | System Analyst |
-| Дата | 2026-07-02 |
+| Дата | 2026-07-02, актуализация 2026-07-03 |
 | Основание | `docs/development-task.md` (BA), `task.md` |
+| Реализация | 74/74 тестов зелёные (63 unit + 11 integration); план работ T1–T10 выполнен (§ 12) |
 
 Документ переводит бизнес-требования в техническое задание. Бизнес-контекст, user stories и допущения A1–A8 — см. `docs/development-task.md`; здесь они не дублируются, только уточняются.
 
@@ -57,28 +58,47 @@ HTTP API и обработчики сообщений хостятся **в од
 
 ### 2.2. Структура решения
 
+Фактическая структура (as-built). Отличия от первоначального проекта: контракты сообщений и общие DTO вынесены в отдельный проект **`SubjectHitman.Abstractions`** (без зависимости от Wolverine — см. § 7.6), формат решения — `.slnx`, каталог тестов — `test/`.
+
 ```
-SubjectHitman.sln
+SubjectHitman.slnx
+├── Directory.Build.props
 ├── src/
+│   ├── SubjectHitman.Abstractions/     # контракты: сообщения, DTO, IReportStatusClient
+│   │   ├── Messages/                   # ReportOrdered, ReportCompleted, ReportFailed
+│   │   ├── Api/                        # UsageQueryRequest/Response, ReportStatusResponse
+│   │   ├── SubjectData.cs, IdentityDocumentData.cs, PersonNameData.cs
+│   │   ├── IReportStatusClient.cs, ReportStatus.cs
+│   │   └── (НЕ ссылается на Wolverine)
 │   ├── SubjectHitman.Api/              # хост: minimal API + Wolverine + EF Core
 │   │   ├── Program.cs
 │   │   ├── Endpoints/UsageQueryEndpoint.cs
-│   │   ├── Sagas/ReportAccountingSaga.cs
-│   │   ├── Messaging/                  # контракты сообщений (record'ы)
+│   │   ├── Sagas/
+│   │   │   ├── ReportAccountingSaga.cs         # § 7.3
+│   │   │   ├── ReportStatusCheckTimeout.cs     # внутреннее scheduled-сообщение
+│   │   │   └── SagaOptions.cs
 │   │   ├── Domain/
 │   │   │   ├── SubjectIdentificationService.cs
-│   │   │   ├── SearchKeyBuilder.cs     # нормализация + K1..K6 + SHA256
-│   │   │   ├── FreeReportCounter.cs    # выборка + cooldown-группировка
-│   │   │   └── Entities/               # Subject, SubjectName, SubjectDocument, SearchKey, ReportUsage
+│   │   │   ├── PersonalDataNormalizer.cs       # нормализация § 5.1–5.2
+│   │   │   ├── SearchKeyBuilder.cs             # K1..K6 + SHA256 (§ 5.3)
+│   │   │   ├── NormalizedSubject.cs
+│   │   │   ├── FreeReportCounter.cs            # выборка + cooldown (§ 6)
+│   │   │   ├── FreeReportsOptions.cs
+│   │   │   └── Entities/                       # Subject, SubjectName, SubjectDocument,
+│   │   │                                       # SearchKey, ReportUsage (+ enums)
 │   │   ├── Infrastructure/
-│   │   │   ├── AppDbContext.cs + Migrations/
-│   │   │   └── ReportStatusClient.cs   # IReportStatusClient + HTTP-реализация
+│   │   │   ├── AppDbContext.cs + Migrations/   # InitialSchema
+│   │   │   ├── DesignTimeDbContextFactory.cs
+│   │   │   └── ReportStatusClient.cs           # HTTP-реализация IReportStatusClient
 │   │   └── appsettings.json
 │   └── SubjectHitman.ReportStatusMock/ # мок статус-API (D5)
-├── tests/
-│   ├── SubjectHitman.UnitTests/
-│   └── SubjectHitman.IntegrationTests/ # Testcontainers: PostgreSQL + RabbitMQ
-├── docker-compose.yml                  # postgres + rabbitmq + mock
+├── test/
+│   ├── SubjectHitman.UnitTests/        # 63 теста: нормализация, ключи, cooldown,
+│   │                                   # разрешение конфликтов, валидация
+│   └── SubjectHitman.IntegrationTests/ # 11 тестов: Testcontainers PostgreSQL + RabbitMQ,
+│                                       # WebApplicationFactory, стаб IReportStatusClient
+├── Dockerfile                          # образ SubjectHitman.Api
+├── docker-compose.yml                  # postgres + rabbitmq + status-mock + api
 └── README.md
 ```
 
@@ -382,7 +402,10 @@ Wolverine: durable inbox/outbox на PostgreSQL (`PersistMessagesWithPostgresql`
 
 ### 7.2. Контракты сообщений (C# records)
 
+Внешние контракты — в проекте `SubjectHitman.Abstractions` (namespace `SubjectHitman.Abstractions.Messages`), **без зависимости от Wolverine**. Внутреннее scheduled-сообщение `ReportStatusCheckTimeout` — в `SubjectHitman.Api.Sagas` (не покидает локальную durable-очередь).
+
 ```csharp
+// SubjectHitman.Abstractions
 public record SubjectData(
     string LastName, string FirstName, string? MiddleName,
     DateOnly BirthDate,
@@ -397,7 +420,9 @@ public record PersonNameData(string LastName, string FirstName, string? MiddleNa
 public record ReportOrdered(Guid ReportId, DateTimeOffset OrderedAt, bool IsFree, SubjectData Subject);
 public record ReportCompleted(Guid ReportId, DateTimeOffset CompletedAt);
 public record ReportFailed(Guid ReportId, DateTimeOffset FailedAt, string? Reason);
-public record ReportStatusCheckTimeout(Guid ReportId);   // внутреннее scheduled-сообщение
+
+// SubjectHitman.Api.Sagas — внутреннее scheduled-сообщение
+public record ReportStatusCheckTimeout(Guid ReportId, int CheckCount);
 ```
 
 Сериализация — JSON (System.Text.Json), camelCase. Идентичность сообщения = `ReportId`.
@@ -407,7 +432,8 @@ public record ReportStatusCheckTimeout(Guid ReportId);   // внутреннее
 ```csharp
 public class ReportAccountingSaga : Saga
 {
-    public Guid Id { get; set; }              // = ReportId
+    [SagaIdentity]
+    public Guid ReportId { get; set; }        // = ReportId сообщений
     public Guid SubjectId { get; set; }
     public bool IsFree { get; set; }
     public DateTimeOffset OrderedAt { get; set; }
@@ -415,15 +441,27 @@ public class ReportAccountingSaga : Saga
 }
 ```
 
+**Корреляция саги (критично, выяснено при реализации).** Wolverine определяет saga identity по свойству сообщения, перебирая имена в порядке: `[SagaIdentityFrom]` на параметре обработчика → `[SagaIdentity]` на члене сообщения → `{SagaTypeName}Id` (`ReportAccountingSagaId`) → имя без "Saga" (`ReportAccountingId`) → `SagaId` → `Id` (case-insensitive). Свойство `ReportId` наших сообщений **не подходит ни под одно** из соглашений, а атрибут `[SagaIdentity]` на сообщениях невозможен (Abstractions не ссылается на Wolverine). Поэтому на параметре сообщения **каждого** обработчика саги стоит атрибут:
+
+```csharp
+public async Task<OutgoingMessages> Start(
+    [SagaIdentityFrom("ReportId")] ReportOrdered message, ...)
+```
+
+Достаточно одного обработчика на тип сообщения; статическим `NotFound(...)` атрибут не нужен (Wolverine сканирует параметры всех обработчиков и берёт первый найденный атрибут).
+
 | Обработчик | Логика |
 |---|---|
-| `Start(ReportOrdered)` | Идемпотентность: если `report_usages` уже содержит `reportId` — игнор (лог `Information`). Иначе: идентификация субъекта (§ 5, общая транзакция с insert'ом `report_usages` в статусе `Pending`), заполнение состояния саги, `schedule ReportStatusCheckTimeout через SagaTimeout`. |
-| `Handle(ReportCompleted)` | `report_usages.status = Charged`, `finished_at = now()`, `MarkCompleted()`. |
-| `Handle(ReportFailed)` | `report_usages.status = NotCharged`, `finished_at = now()`, `MarkCompleted()`. |
-| `Handle(ReportStatusCheckTimeout)` | Вызов `IReportStatusClient.GetStatusAsync(reportId)`:<br>• `Success` → как `ReportCompleted`;<br>• `Failed` → как `NotCharged`;<br>• `Unknown` (в т.ч. любая ошибка/таймаут HTTP): если `TimeoutCheckCount + 1 >= MaxTimeoutRetries` → `NotCharged` + `MarkCompleted()`, лог `Warning`; иначе `TimeoutCheckCount++`, re-schedule через `SagaTimeout`. |
-| Saga not found (`ReportCompleted`/`ReportFailed`/`ReportStatusCheckTimeout` без саги) | Лог `Warning`, сообщение подтверждается (Q2). В Wolverine — статический `NotFound(...)` обработчик. |
+| `Start(ReportOrdered)` | Идемпотентность: если `report_usages` уже содержит `reportId` — лог `Information`, `SubjectId` берётся из существующей записи, вставки нет. Иначе: идентификация субъекта (§ 5), insert `report_usages` в статусе `Pending`, **явный `SaveChangesAsync`**. В обоих случаях: заполнение состояния саги и `Schedule(ReportStatusCheckTimeout, now + SagaTimeout)` через возвращаемый `OutgoingMessages`. |
+| `Handle(ReportCompleted)` | `FinishAsync(Charged)`, `MarkCompleted()`. |
+| `Handle(ReportFailed)` | `FinishAsync(NotCharged)`, `MarkCompleted()`. |
+| `Handle(ReportStatusCheckTimeout)` | Вызов `IReportStatusClient.GetStatusAsync(reportId)`:<br>• `Success` → `FinishAsync(Charged)` + `MarkCompleted()`;<br>• `Failed` → `FinishAsync(NotCharged)` + `MarkCompleted()`;<br>• `Unknown` (в т.ч. любая ошибка/таймаут HTTP): `TimeoutCheckCount++`; если `TimeoutCheckCount >= MaxTimeoutRetries` → `FinishAsync(NotCharged)` + `MarkCompleted()`, лог `Warning`; иначе re-schedule через `SagaTimeout`. |
+| Saga not found (`ReportCompleted`/`ReportFailed` без саги) | Статический `NotFound(...)`: лог `Warning`, сообщение подтверждается (Q2). |
+| Saga not found (`ReportStatusCheckTimeout` после завершения саги) | Статический `NotFound(...)`: лог `Debug`, штатная ситуация — timeout всегда остаётся в расписании после завершения саги по `ReportCompleted`/`ReportFailed`. |
 
-Обновление `report_usages` и завершение саги — в одной транзакции (Wolverine transactional middleware + EF Core).
+Общий приватный метод `FinishAsync(status)`: `FindAsync` записи `report_usages` по `ReportId` (исключение, если нет — защита инварианта «сага существует ⇒ запись есть»), обновление `status`/`finished_at` **только из `Pending`** (защита от повторной финализации), **явный `SaveChangesAsync`**.
+
+**Персистентность (критично, выяснено при реализации).** Saga-персистентность Wolverine (`CommitUnitOfWorkFrame`) сохраняет только состояние самой саги; изменения доменных сущностей (`ReportUsage`) в пользовательском `AppDbContext` **не флашатся автоматически**, несмотря на `UseEntityFrameworkCoreTransactions()` + `AutoApplyTransactions()`. Поэтому в `Start` и `FinishAsync` — явные вызовы `dbContext.SaveChangesAsync(ct)`.
 
 ### 7.4. Sequence — timeout-ветка
 
@@ -458,6 +496,14 @@ public interface IReportStatusClient
 ```
 
 HTTP-реализация: `HttpClient` через `IHttpClientFactory`, timeout 5 сек, **без** retry внутри клиента (ретраи — на уровне саги). Любая ошибка (не-2xx, сеть, timeout, невалидный JSON) → `Unknown` + лог `Warning`. Мок-проект отвечает по контракту § 7.3 BA-документа и позволяет задавать статусы через `PUT /reports/{reportId}/status` (для интеграционных тестов и ручной отладки).
+
+### 7.6. Ограничение: `SubjectHitman.Abstractions` без Wolverine
+
+Проект контрактов не ссылается на Wolverine — сообщения переиспользуемы вышестоящей системой без транзитивной зависимости от брокер-фреймворка. Следствия:
+
+- атрибуты Wolverine (`[SagaIdentity]` и т.п.) **нельзя** ставить на типы сообщений;
+- корреляция саги решается на стороне `SubjectHitman.Api` атрибутом `[SagaIdentityFrom("ReportId")]` на параметрах обработчиков (§ 7.3);
+- `IReportStatusClient` и `ReportStatus` также в Abstractions (интерфейс подменяется стабом в интеграционных тестах).
 
 ---
 
@@ -501,20 +547,20 @@ HTTP-реализация: `HttpClient` через `IHttpClientFactory`, timeout
 
 ## 10. План работ (порядок реализации)
 
+Все задачи выполнены (статус — см. § 12).
+
 | # | Задача | Зависимости | Результат |
 |---|---|---|---|
-| T1 | Скелет решения: проекты, docker-compose (postgres, rabbitmq), CI-совместимая сборка | — | `dotnet build` проходит |
-| T2 | EF Core: сущности, `AppDbContext`, миграция схемы § 3 | T1 | миграция создаёт БД с нуля |
-| T3 | `SearchKeyBuilder`: нормализация § 5.1–5.2, прообразы § 5.3, юнит-тесты | T1 | все кейсы DoD по ключам зелёные |
-| T4 | `SubjectIdentificationService`: поиск, разрешение конфликтов, merge, advisory locks, retry; юнит + интеграционные тесты (включая конкурентный) | T2, T3 | |
-| T5 | `FreeReportCounter`: выборка + cooldown; юнит-тесты границ | T2 | |
-| T6 | HTTP endpoint US-1: валидация, ProblemDetails, интеграционный тест | T4, T5 | |
-| T7 | Контракты сообщений, топология RabbitMQ, Wolverine durable inbox/outbox | T1 | |
-| T8 | `ReportAccountingSaga`: основной поток + идемпотентность + not-found; интеграционные тесты | T4, T7 | |
-| T9 | Timeout-ветка: `IReportStatusClient`, HTTP-реализация, мок-проект, тесты ретраев | T8 | |
-| T10 | Наблюдаемость, health checks, README, финальный прогон DoD | T6, T9 | DoD § 11 BA-документа выполнен |
-
-Оценка сложности — T4 и T8 самые ёмкие; T3 и T5 — чистая логика, делать первыми под юнит-тесты.
+| T1 | Скелет решения: проекты, docker-compose (postgres, rabbitmq), CI-совместимая сборка | — | ✅ `dotnet build` проходит |
+| T2 | EF Core: сущности, `AppDbContext`, миграция схемы § 3 | T1 | ✅ миграция `InitialSchema` создаёт БД с нуля |
+| T3 | `SearchKeyBuilder`: нормализация § 5.1–5.2, прообразы § 5.3, юнит-тесты | T1 | ✅ `PersonalDataNormalizer` + `SearchKeyBuilder` |
+| T4 | `SubjectIdentificationService`: поиск, разрешение конфликтов, merge, advisory locks, retry; юнит + интеграционные тесты (включая конкурентный) | T2, T3 | ✅ |
+| T5 | `FreeReportCounter`: выборка + cooldown; юнит-тесты границ | T2 | ✅ |
+| T6 | HTTP endpoint US-1: валидация, ProblemDetails, интеграционный тест | T4, T5 | ✅ 4 интеграционных теста |
+| T7 | Контракты сообщений, топология RabbitMQ, Wolverine durable inbox/outbox | T1 | ✅ контракты в `Abstractions` |
+| T8 | `ReportAccountingSaga`: основной поток + идемпотентность + not-found; интеграционные тесты | T4, T7 | ✅ см. § 7.3, § 12 |
+| T9 | Timeout-ветка: `IReportStatusClient`, HTTP-реализация, мок-проект, тесты ретраев | T8 | ✅ |
+| T10 | Наблюдаемость, health checks, README, финальный прогон DoD | T6, T9 | ✅ 74/74 тестов |
 
 ---
 
@@ -529,3 +575,38 @@ HTTP-реализация: `HttpClient` через `IHttpClientFactory`, timeout
 | A6 (моки) | § 7.5, D5, T9 |
 | Q1–Q5 | § 1 |
 | NFR § 9 BA | § 8, § 9, § 3 |
+
+---
+
+## 12. Статус реализации (as-built, 2026-07-03)
+
+### 12.1. Итог
+
+Компонент реализован полностью, все задачи T1–T10 закрыты. Тесты: **63 unit + 11 integration = 74/74 зелёные**. Интеграционные тесты — Testcontainers (`postgres:17-alpine`, `rabbitmq:4-management-alpine`) + `WebApplicationFactory<Program>`; `IReportStatusClient` подменяется управляемым стабом, `Saga:Timeout` в тестах — 2 сек, `MaxTimeoutRetries` — 2.
+
+### 12.2. Отклонения от первоначальной спеки
+
+| # | Спека (было) | Реализация (стало) | Причина |
+|---|---|---|---|
+| Δ1 | Контракты сообщений в `SubjectHitman.Api/Messaging/` | Отдельный проект `SubjectHitman.Abstractions` без ссылки на Wolverine (§ 7.6) | Переиспользование контрактов вышестоящей системой |
+| Δ2 | Свойство саги `Id` | Свойство `ReportId` + `[SagaIdentity]` на саге + `[SagaIdentityFrom("ReportId")]` на параметрах всех обработчиков | Соглашения Wolverine по имени свойства не покрывают `ReportId` (§ 7.3); `[SagaIdentity]` на сообщениях невозможен из-за Δ1 |
+| Δ3 | «Обновление `report_usages` и завершение саги — в одной транзакции (transactional middleware)» | Явные `SaveChangesAsync` в `Start` и `FinishAsync` | Saga-персистентность Wolverine не флашит пользовательские сущности EF Core автоматически (§ 7.3) |
+| Δ4 | `ReportStatusCheckTimeout(Guid ReportId)` | `ReportStatusCheckTimeout(Guid ReportId, int CheckCount)` | Диагностика: номер проверки виден в сообщении |
+| Δ5 | Ретраи консюмера: экспоненциальная задержка, 3 попытки | `RetryWithCooldown(1s, 5s, 15s)` → move to error queue | Эквивалентная политика штатными средствами Wolverine |
+| Δ6 | `SubjectHitman.sln`, каталог `tests/` | `SubjectHitman.slnx`, каталог `test/` | Современный формат решения |
+| Δ7 | Health readiness «доступность PostgreSQL» | `AddDbContextCheck<AppDbContext>` на `GET /health` | Одна проверка покрывает liveness+readiness на этой итерации |
+
+Функциональные требования (Q1–Q5, D1–D5, US-1..US-3) реализованы без отклонений.
+
+### 12.3. Технические находки (для сопровождения)
+
+1. **Корреляция саг Wolverine.** Порядок разрешения saga identity в `SagaChain.DetermineSagaIdMember`: `[SagaIdentityFrom]` на параметре обработчика → `[SagaIdentity]` на члене сообщения → свойство `{SagaTypeName}Id` → имя без «Saga» → `SagaId` → `Id`. При добавлении нового сообщения саги **обязательно** ставить `[SagaIdentityFrom("ReportId")]` на его параметр, иначе корреляция молча не сработает.
+2. **Флаш доменных сущностей.** Несмотря на `UseEntityFrameworkCoreTransactions()` + `Policies.AutoApplyTransactions()`, изменения в `AppDbContext` из обработчиков саги требуют явного `SaveChangesAsync`. Симптом при пропуске: `InvalidOperationException: Запись учёта для отчёта … не найдена` в `FinishAsync`.
+3. **`NotFound` для timeout — штатный путь.** Scheduled-сообщение `ReportStatusCheckTimeout` всегда срабатывает после завершения саги по `ReportCompleted`/`ReportFailed`; обрабатывается статическим `NotFound` с логом `Debug` (не `Warning` — это не аномалия).
+4. **Двойная защита идемпотентности финализации.** `FinishAsync` меняет статус только из `Pending`; повторные `ReportCompleted`/`ReportFailed` после завершения саги попадают в `NotFound` (Q2).
+
+### 12.4. Возможные улучшения (вне скоупа итерации)
+
+- AuthN/AuthZ HTTP API (Q3) — стандартный middleware, обработчики менять не потребуется.
+- Раздельные liveness/readiness probes при выкладке в оркестратор (Δ7).
+- Метрики (счётчики стартов/исходов саг, длительность идентификации) — сейчас только структурированные логи.

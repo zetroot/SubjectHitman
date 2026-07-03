@@ -2,6 +2,8 @@
   <Folder Name="/src/">
     <Project Path="src/SubjectHitman.Abstractions/SubjectHitman.Abstractions.csproj" />
     <Project Path="src/SubjectHitman.Api/SubjectHitman.Api.csproj" />
+    <Project Path="src/SubjectHitman.DataAccess/SubjectHitman.DataAccess.csproj" />
+    <Project Path="src/SubjectHitman.Domain/SubjectHitman.Domain.csproj" />
     <Project Path="src/SubjectHitman.ReportStatusMock/SubjectHitman.ReportStatusMock.csproj" />
   </Folder>
   <Folder Name="/test/">

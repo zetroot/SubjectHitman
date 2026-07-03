@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\SubjectHitman.Api\SubjectHitman.Api.csproj" />
+    <ProjectReference Include="..\..\src\SubjectHitman.Domain\SubjectHitman.Domain.csproj" />
   </ItemGroup>
 
 </Project>

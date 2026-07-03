@@ -1,4 +1,4 @@
-namespace SubjectHitman.Api.Domain.Entities;
+namespace SubjectHitman.Domain.Entities;
 
 /// <summary>
 /// ФИО субъекта. Субъект может иметь несколько вариантов ФИО (например, до и после смены фамилии);

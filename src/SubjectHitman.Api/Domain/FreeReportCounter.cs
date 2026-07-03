@@ -1,7 +1,6 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using SubjectHitman.Api.Domain.Entities;
-using SubjectHitman.Api.Infrastructure;
+using SubjectHitman.Domain.Entities;
+using SubjectHitman.Domain.Repositories;
 
 namespace SubjectHitman.Api.Domain;
 
@@ -17,11 +16,11 @@ public record FreeReportCountResult(int UsedFreeReportsCount, DateTimeOffset Per
 /// Подсчитывает бесплатные отчёты, предоставленные субъекту в текущем календарном году,
 /// группируя отчёты внутри периода кулдауна в один (техническая спецификация, § 6).
 /// </summary>
-/// <param name="dbContext">Контекст базы данных.</param>
+/// <param name="reportUsageRepository">Репозиторий учётных записей отчётов.</param>
 /// <param name="options">Настройки подсчёта (кулдаун, часовой пояс).</param>
 /// <param name="timeProvider">Источник времени, определяющий «сейчас».</param>
 public class FreeReportCounter(
-    AppDbContext dbContext,
+    IReportUsageRepository reportUsageRepository,
     IOptions<FreeReportsOptions> options,
     TimeProvider timeProvider)
 {
@@ -44,15 +43,7 @@ public class FreeReportCounter(
             TimeZoneInfo.ConvertTimeToUtc(new DateTime(nowLocal.Year + 1, 1, 1, 0, 0, 0, DateTimeKind.Unspecified), tz),
             TimeSpan.Zero);
 
-        var orderedAts = await dbContext.ReportUsages
-            .Where(r => r.SubjectId == subjectId
-                        && r.IsFree
-                        && r.Status == ReportUsageStatus.Charged
-                        && r.OrderedAt >= startUtc
-                        && r.OrderedAt < endUtc)
-            .OrderBy(r => r.OrderedAt)
-            .Select(r => r.OrderedAt)
-            .ToListAsync(ct);
+        var orderedAts = await reportUsageRepository.GetChargedFreeOrderTimestampsAsync(subjectId, startUtc, endUtc, ct);
 
         var count = CollapseByCooldown(orderedAts, options.Value.CooldownPeriod);
 

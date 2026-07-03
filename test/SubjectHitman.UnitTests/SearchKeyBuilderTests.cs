@@ -1,6 +1,7 @@
 using SubjectHitman.Abstractions;
 using SubjectHitman.Api.Domain;
-using SubjectHitman.Api.Domain.Entities;
+using SubjectHitman.Domain;
+using SubjectHitman.Domain.Entities;
 
 namespace SubjectHitman.UnitTests;
 

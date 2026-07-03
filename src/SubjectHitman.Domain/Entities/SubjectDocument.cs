@@ -1,4 +1,4 @@
-namespace SubjectHitman.Api.Domain.Entities;
+namespace SubjectHitman.Domain.Entities;
 
 /// <summary>
 /// Документ, удостоверяющий личность субъекта. Субъект может иметь несколько документов;

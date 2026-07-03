@@ -1,8 +1,7 @@
-using Microsoft.EntityFrameworkCore;
-using Npgsql;
 using SubjectHitman.Abstractions;
-using SubjectHitman.Api.Domain.Entities;
-using SubjectHitman.Api.Infrastructure;
+using SubjectHitman.Domain;
+using SubjectHitman.Domain.Entities;
+using SubjectHitman.Domain.Repositories;
 
 namespace SubjectHitman.Api.Domain;
 
@@ -11,22 +10,19 @@ namespace SubjectHitman.Api.Domain;
 /// построенным согласно Указанию 5791-У: находит существующего субъекта (создавая нового при отсутствии),
 /// объединяет входящие персональные данные и пересчитывает поисковые ключи (техническая спецификация, § 5.4–5.6).
 /// </summary>
-/// <param name="dbContext">Контекст базы данных.</param>
+/// <param name="subjectRepository">Репозиторий субъектов (advisory-блокировки, транзакции, ретраи).</param>
 /// <param name="timeProvider">Источник времени, используемый для отметки создания субъекта.</param>
 /// <param name="logger">Логгер.</param>
 public class SubjectIdentificationService(
-    AppDbContext dbContext,
+    ISubjectRepository subjectRepository,
     TimeProvider timeProvider,
     ILogger<SubjectIdentificationService> logger)
 {
-    private const int MaxRetries = 1;
-
     /// <summary>
     /// Идентифицирует субъекта, описанного в <paramref name="data"/>: вычисляет поисковые ключи запроса,
     /// ищет кандидатов, выбирает победителя по правилам разрешения конфликтов, объединяет персональные данные
     /// и пересчитывает сохранённые ключи. Создаёт нового субъекта, если ничего не найдено.
-    /// Вся операция выполняется в сериализуемой единице, защищённой консультативными блокировками PostgreSQL
-    /// на хешах ключей запроса, и повторяется один раз при гонке по уникальному ограничению.
+    /// Управление транзакцией, advisory-блокировками и ретраями делегировано <see cref="ISubjectRepository.ExecuteIdentificationAsync{T}"/>.
     /// </summary>
     /// <param name="data">Необработанные персональные данные субъекта из запроса или события.</param>
     /// <param name="ct">Токен отмены.</param>
@@ -42,101 +38,55 @@ public class SubjectIdentificationService(
             throw new InvalidOperationException("No search keys could be computed from the request data.");
         }
 
-        for (var attempt = 0; ; attempt++)
-        {
-            try
-            {
-                return await IdentifyCoreAsync(normalized, requestKeys, ct);
-            }
-            catch (DbUpdateException ex) when (
-                attempt < MaxRetries && ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
-            {
-                logger.LogWarning("Unique violation during subject identification, retrying (attempt {Attempt})", attempt + 1);
-                dbContext.ChangeTracker.Clear();
-            }
-        }
+        return await subjectRepository.ExecuteIdentificationAsync(
+            requestKeys,
+            (repo, innerCt) => IdentifyCoreAsync(normalized, requestKeys, repo, innerCt),
+            ct);
     }
 
     private async Task<Guid> IdentifyCoreAsync(
         NormalizedSubject normalized,
         IReadOnlyCollection<SearchKeyValue> requestKeys,
+        ISubjectRepository repo,
         CancellationToken ct)
     {
-        var ownsTransaction = dbContext.Database.CurrentTransaction is null;
-        var transaction = ownsTransaction
-            ? await dbContext.Database.BeginTransactionAsync(ct)
-            : null;
-        try
-        {
-            await AcquireAdvisoryLocksAsync(requestKeys, ct);
+        var hashes = requestKeys.Select(k => k.Hash).ToList();
+        var matches = await repo.FindKeyMatchesAsync(hashes, ct);
 
-            var hashes = requestKeys.Select(k => k.Hash).ToList();
-            var matches = await dbContext.SearchKeys
-                .Where(k => hashes.Contains(k.Hash))
-                .Select(k => new { k.SubjectId, k.KeyType, k.Hash })
-                .ToListAsync(ct);
-
-            // Advisory hash prefixes may collide across key types in theory; filter to exact request keys.
-            var requestKeySet = requestKeys.ToHashSet();
-            var confirmed = matches
-                .Where(m => requestKeySet.Contains(new SearchKeyValue(m.KeyType, m.Hash)))
-                .GroupBy(m => m.SubjectId)
-                .ToList();
-
-            Guid subjectId;
-            if (confirmed.Count == 0)
-            {
-                subjectId = await CreateSubjectAsync(normalized, ct);
-                logger.LogInformation("Created new subject {SubjectId} with {KeyCount} search keys", subjectId, requestKeys.Count);
-            }
-            else
-            {
-                subjectId = await PickWinnerAsync(confirmed.ToDictionary(
-                    g => g.Key,
-                    g => g.Select(m => m.KeyType).Distinct().OrderBy(t => t).ToList()), ct);
-                await MergeSubjectAsync(subjectId, normalized, ct);
-            }
-
-            if (transaction is not null)
-            {
-                await transaction.CommitAsync(ct);
-            }
-
-            return subjectId;
-        }
-        finally
-        {
-            if (transaction is not null)
-            {
-                await transaction.DisposeAsync();
-            }
-        }
-    }
-
-    private async Task AcquireAdvisoryLocksAsync(IReadOnlyCollection<SearchKeyValue> keys, CancellationToken ct)
-    {
-        var lockIds = keys
-            .Select(k => BitConverter.ToInt64(k.Hash, 0))
-            .Distinct()
-            .OrderBy(x => x)
+        var requestKeySet = requestKeys.ToHashSet();
+        var confirmed = matches
+            .Where(m => requestKeySet.Contains(new SearchKeyValue(m.KeyType, m.Hash)))
+            .GroupBy(m => m.SubjectId)
             .ToList();
-        foreach (var lockId in lockIds)
+
+        Guid subjectId;
+        if (confirmed.Count == 0)
         {
-            await dbContext.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock({lockId})", ct);
+            subjectId = await CreateSubjectAsync(normalized, repo, ct);
+            logger.LogInformation("Created new subject {SubjectId} with {KeyCount} search keys", subjectId, requestKeys.Count);
         }
+        else
+        {
+            subjectId = await PickWinnerAsync(confirmed.ToDictionary(
+                g => g.Key,
+                g => g.Select(m => m.KeyType).Distinct().OrderBy(t => t).ToList()), repo, ct);
+            await MergeSubjectAsync(subjectId, normalized, repo, ct);
+        }
+
+        return subjectId;
     }
 
-    private async Task<Guid> PickWinnerAsync(Dictionary<Guid, List<SearchKeyType>> candidates, CancellationToken ct)
+    private async Task<Guid> PickWinnerAsync(
+        Dictionary<Guid, List<SearchKeyType>> candidates,
+        ISubjectRepository repo,
+        CancellationToken ct)
     {
         if (candidates.Count == 1)
         {
             return candidates.Keys.Single();
         }
 
-        var createdAt = await dbContext.Subjects
-            .Where(s => candidates.Keys.Contains(s.Id))
-            .Select(s => new { s.Id, s.CreatedAt })
-            .ToDictionaryAsync(s => s.Id, s => s.CreatedAt, ct);
+        var createdAt = await repo.GetCreatedAtAsync(candidates.Keys, ct);
 
         var winner = ResolveWinner(candidates, createdAt);
 
@@ -173,7 +123,7 @@ public class SubjectIdentificationService(
             .Key;
     }
 
-    private async Task<Guid> CreateSubjectAsync(NormalizedSubject normalized, CancellationToken ct)
+    private async Task<Guid> CreateSubjectAsync(NormalizedSubject normalized, ISubjectRepository repo, CancellationToken ct)
     {
         var subject = new Subject
         {
@@ -193,18 +143,14 @@ public class SubjectIdentificationService(
             .Select(k => new SearchKey { KeyType = k.KeyType, Hash = k.Hash })
             .ToList();
 
-        dbContext.Subjects.Add(subject);
-        await dbContext.SaveChangesAsync(ct);
+        await repo.AddSubjectAsync(subject, ct);
+        await repo.SaveChangesAsync(ct);
         return subject.Id;
     }
 
-    private async Task MergeSubjectAsync(Guid subjectId, NormalizedSubject incoming, CancellationToken ct)
+    private async Task MergeSubjectAsync(Guid subjectId, NormalizedSubject incoming, ISubjectRepository repo, CancellationToken ct)
     {
-        var subject = await dbContext.Subjects
-            .Include(s => s.Names)
-            .Include(s => s.Documents)
-            .Include(s => s.SearchKeys)
-            .SingleAsync(s => s.Id == subjectId, ct);
+        var subject = await repo.GetSubjectWithDetailsAsync(subjectId, ct);
 
         var changed = false;
 
@@ -259,7 +205,7 @@ public class SubjectIdentificationService(
             }
         }
 
-        await dbContext.SaveChangesAsync(ct);
+        await repo.SaveChangesAsync(ct);
     }
 
     private bool MergeScalar<T>(

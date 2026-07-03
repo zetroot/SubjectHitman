@@ -1,4 +1,4 @@
-namespace SubjectHitman.Api.Domain.Entities;
+namespace SubjectHitman.Domain.Entities;
 
 /// <summary>
 /// Предвычисленный ключ поиска субъекта: SHA-256 хэш над нормализованной конкатенацией

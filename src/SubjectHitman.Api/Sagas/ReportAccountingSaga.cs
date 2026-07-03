@@ -2,8 +2,8 @@ using Microsoft.Extensions.Options;
 using SubjectHitman.Abstractions;
 using SubjectHitman.Abstractions.Messages;
 using SubjectHitman.Api.Domain;
-using SubjectHitman.Api.Domain.Entities;
-using SubjectHitman.Api.Infrastructure;
+using SubjectHitman.Domain.Entities;
+using SubjectHitman.Domain.Repositories;
 using Wolverine;
 using Wolverine.Persistence.Sagas;
 
@@ -42,7 +42,7 @@ public class ReportAccountingSaga : Saga
     /// </summary>
     /// <param name="message">Событие заказа отчёта.</param>
     /// <param name="identification">Сервис идентификации субъекта.</param>
-    /// <param name="dbContext">Контекст базы данных.</param>
+    /// <param name="reportUsageRepository">Репозиторий учётных записей отчётов.</param>
     /// <param name="sagaOptions">Настройки саги.</param>
     /// <param name="timeProvider">Провайдер времени для планирования timeout.</param>
     /// <param name="logger">Логгер.</param>
@@ -51,7 +51,7 @@ public class ReportAccountingSaga : Saga
     public async Task<OutgoingMessages> Start(
         [SagaIdentityFrom("ReportId")] ReportOrdered message,
         SubjectIdentificationService identification,
-        AppDbContext dbContext,
+        IReportUsageRepository reportUsageRepository,
         IOptions<SagaOptions> sagaOptions,
         TimeProvider timeProvider,
         ILogger<ReportAccountingSaga> logger,
@@ -61,7 +61,7 @@ public class ReportAccountingSaga : Saga
         IsFree = message.IsFree;
         OrderedAt = message.OrderedAt;
 
-        var existing = await dbContext.ReportUsages.FindAsync([message.ReportId], ct);
+        var existing = await reportUsageRepository.FindAsync(message.ReportId, ct);
         if (existing is not null)
         {
             logger.LogInformation("Повторный ReportOrdered для отчёта {ReportId}, игнорируется", message.ReportId);
@@ -70,7 +70,7 @@ public class ReportAccountingSaga : Saga
         else
         {
             SubjectId = await identification.IdentifyAsync(message.Subject, ct);
-            dbContext.ReportUsages.Add(new ReportUsage
+            reportUsageRepository.Add(new ReportUsage
             {
                 ReportId = message.ReportId,
                 SubjectId = SubjectId,
@@ -78,7 +78,7 @@ public class ReportAccountingSaga : Saga
                 Status = ReportUsageStatus.Pending,
                 OrderedAt = message.OrderedAt,
             });
-            await dbContext.SaveChangesAsync(ct);
+            await reportUsageRepository.SaveChangesAsync(ct);
 
             logger.LogInformation(
                 "Сага учёта запущена для отчёта {ReportId}, субъект {SubjectId}, isFree={IsFree}",
@@ -98,18 +98,18 @@ public class ReportAccountingSaga : Saga
     /// Завершает сагу: общая сага обработки отчёта завершилась успешно, отчёт списан.
     /// </summary>
     /// <param name="message">Событие успешного завершения.</param>
-    /// <param name="dbContext">Контекст базы данных.</param>
+    /// <param name="reportUsageRepository">Репозиторий учётных записей отчётов.</param>
     /// <param name="timeProvider">Провайдер времени.</param>
     /// <param name="logger">Логгер.</param>
     /// <param name="ct">Токен отмены.</param>
     public async Task Handle(
         [SagaIdentityFrom("ReportId")] ReportCompleted message,
-        AppDbContext dbContext,
+        IReportUsageRepository reportUsageRepository,
         TimeProvider timeProvider,
         ILogger<ReportAccountingSaga> logger,
         CancellationToken ct)
     {
-        await FinishAsync(dbContext, timeProvider, ReportUsageStatus.Charged, ct);
+        await FinishAsync(reportUsageRepository, timeProvider, ReportUsageStatus.Charged, ct);
         logger.LogInformation("Отчёт {ReportId} учтён как списанный", message.ReportId);
         MarkCompleted();
     }
@@ -118,18 +118,18 @@ public class ReportAccountingSaga : Saga
     /// Завершает сагу: общая сага обработки отчёта завершилась неуспешно, отчёт не списан.
     /// </summary>
     /// <param name="message">Событие неуспешного завершения.</param>
-    /// <param name="dbContext">Контекст базы данных.</param>
+    /// <param name="reportUsageRepository">Репозиторий учётных записей отчётов.</param>
     /// <param name="timeProvider">Провайдер времени.</param>
     /// <param name="logger">Логгер.</param>
     /// <param name="ct">Токен отмены.</param>
     public async Task Handle(
         [SagaIdentityFrom("ReportId")] ReportFailed message,
-        AppDbContext dbContext,
+        IReportUsageRepository reportUsageRepository,
         TimeProvider timeProvider,
         ILogger<ReportAccountingSaga> logger,
         CancellationToken ct)
     {
-        await FinishAsync(dbContext, timeProvider, ReportUsageStatus.NotCharged, ct);
+        await FinishAsync(reportUsageRepository, timeProvider, ReportUsageStatus.NotCharged, ct);
         logger.LogInformation(
             "Отчёт {ReportId} учтён как не списанный (причина: {Reason})",
             message.ReportId,
@@ -143,7 +143,7 @@ public class ReportAccountingSaga : Saga
     /// </summary>
     /// <param name="message">Запланированное timeout-сообщение.</param>
     /// <param name="statusClient">Клиент внешнего статусного API.</param>
-    /// <param name="dbContext">Контекст базы данных.</param>
+    /// <param name="reportUsageRepository">Репозиторий учётных записей отчётов.</param>
     /// <param name="sagaOptions">Настройки саги.</param>
     /// <param name="timeProvider">Провайдер времени для перепланирования.</param>
     /// <param name="logger">Логгер.</param>
@@ -152,7 +152,7 @@ public class ReportAccountingSaga : Saga
     public async Task<OutgoingMessages> Handle(
         [SagaIdentityFrom("ReportId")] ReportStatusCheckTimeout message,
         IReportStatusClient statusClient,
-        AppDbContext dbContext,
+        IReportUsageRepository reportUsageRepository,
         IOptions<SagaOptions> sagaOptions,
         TimeProvider timeProvider,
         ILogger<ReportAccountingSaga> logger,
@@ -164,13 +164,13 @@ public class ReportAccountingSaga : Saga
         switch (status)
         {
             case ReportStatus.Success:
-                await FinishAsync(dbContext, timeProvider, ReportUsageStatus.Charged, ct);
+                await FinishAsync(reportUsageRepository, timeProvider, ReportUsageStatus.Charged, ct);
                 logger.LogInformation("Отчёт {ReportId} разрешён как списанный через статусное API", message.ReportId);
                 MarkCompleted();
                 break;
 
             case ReportStatus.Failed:
-                await FinishAsync(dbContext, timeProvider, ReportUsageStatus.NotCharged, ct);
+                await FinishAsync(reportUsageRepository, timeProvider, ReportUsageStatus.NotCharged, ct);
                 logger.LogInformation("Отчёт {ReportId} разрешён как не списанный через статусное API", message.ReportId);
                 MarkCompleted();
                 break;
@@ -180,7 +180,7 @@ public class ReportAccountingSaga : Saga
                 TimeoutCheckCount++;
                 if (TimeoutCheckCount >= sagaOptions.Value.MaxTimeoutRetries)
                 {
-                    await FinishAsync(dbContext, timeProvider, ReportUsageStatus.NotCharged, ct);
+                    await FinishAsync(reportUsageRepository, timeProvider, ReportUsageStatus.NotCharged, ct);
                     logger.LogWarning(
                         "Отчёт {ReportId}: статус неизвестен после {Checks} проверок, учитывается как не списанный",
                         message.ReportId,
@@ -231,18 +231,18 @@ public class ReportAccountingSaga : Saga
         => logger.LogDebug("Timeout для уже завершённой саги {ReportId}, игнорируется", message.ReportId);
 
     private async Task FinishAsync(
-        AppDbContext dbContext,
+        IReportUsageRepository reportUsageRepository,
         TimeProvider timeProvider,
         ReportUsageStatus finalStatus,
         CancellationToken ct)
     {
-        var usage = await dbContext.ReportUsages.FindAsync([ReportId], ct)
+        var usage = await reportUsageRepository.FindAsync(ReportId, ct)
             ?? throw new InvalidOperationException($"Запись учёта для отчёта {ReportId} не найдена.");
         if (usage.Status == ReportUsageStatus.Pending)
         {
             usage.Status = finalStatus;
             usage.FinishedAt = timeProvider.GetUtcNow();
-            await dbContext.SaveChangesAsync(ct);
+            await reportUsageRepository.SaveChangesAsync(ct);
         }
     }
 }

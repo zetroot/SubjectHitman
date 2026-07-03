@@ -3,8 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SubjectHitman.Abstractions;
 using SubjectHitman.Abstractions.Messages;
-using SubjectHitman.Api.Domain.Entities;
-using SubjectHitman.Api.Infrastructure;
+using SubjectHitman.Domain.Entities;
+using SubjectHitman.DataAccess;
 using Wolverine;
 
 namespace SubjectHitman.IntegrationTests;

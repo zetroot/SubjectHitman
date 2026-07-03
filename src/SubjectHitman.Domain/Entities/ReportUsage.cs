@@ -1,4 +1,4 @@
-namespace SubjectHitman.Api.Domain.Entities;
+namespace SubjectHitman.Domain.Entities;
 
 /// <summary>
 /// Учётная запись одного заказанного кредитного отчёта.

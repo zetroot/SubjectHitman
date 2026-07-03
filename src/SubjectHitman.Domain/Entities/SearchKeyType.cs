@@ -1,4 +1,4 @@
-namespace SubjectHitman.Api.Domain.Entities;
+namespace SubjectHitman.Domain.Entities;
 
 /// <summary>
 /// Типы ключей поиска субъекта, производные от приложения 2 к указанию Банка России 5791-У

@@ -2,16 +2,13 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SubjectHitman.Abstractions\SubjectHitman.Abstractions.csproj" />
+    <ProjectReference Include="..\SubjectHitman.DataAccess\SubjectHitman.DataAccess.csproj" />
+    <ProjectReference Include="..\SubjectHitman.Domain\SubjectHitman.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="EFCore.NamingConventions" Version="10.0.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.9" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.2" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.2" />
     <PackageReference Include="WolverineFx.EntityFrameworkCore" Version="6.16.0" />
     <PackageReference Include="WolverineFx.Http" Version="6.16.0" />
     <PackageReference Include="WolverineFx.Postgresql" Version="6.16.0" />

@@ -4,11 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using SubjectHitman.Api.Infrastructure;
+using SubjectHitman.DataAccess;
 
 #nullable disable
 
-namespace SubjectHitman.Api.Infrastructure.Migrations
+namespace SubjectHitman.DataAccess.Migrations
 {
     [DbContext(typeof(AppDbContext))]
     partial class AppDbContextModelSnapshot : ModelSnapshot
@@ -22,7 +22,7 @@ namespace SubjectHitman.Api.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("SubjectHitman.Api.Domain.Entities.ReportUsage", b =>
+            modelBuilder.Entity("SubjectHitman.Domain.Entities.ReportUsage", b =>
                 {
                     b.Property<Guid>("ReportId")
                         .HasColumnType("uuid")
@@ -58,7 +58,7 @@ namespace SubjectHitman.Api.Infrastructure.Migrations
                     b.ToTable("report_usages", (string)null);
                 });
 
-            modelBuilder.Entity("SubjectHitman.Api.Domain.Entities.SearchKey", b =>
+            modelBuilder.Entity("SubjectHitman.Domain.Entities.SearchKey", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -94,7 +94,7 @@ namespace SubjectHitman.Api.Infrastructure.Migrations
                     b.ToTable("search_keys", (string)null);
                 });
 
-            modelBuilder.Entity("SubjectHitman.Api.Domain.Entities.Subject", b =>
+            modelBuilder.Entity("SubjectHitman.Domain.Entities.Subject", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
@@ -124,7 +124,7 @@ namespace SubjectHitman.Api.Infrastructure.Migrations
                     b.ToTable("subjects", (string)null);
                 });
 
-            modelBuilder.Entity("SubjectHitman.Api.Domain.Entities.SubjectDocument", b =>
+            modelBuilder.Entity("SubjectHitman.Domain.Entities.SubjectDocument", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -170,7 +170,7 @@ namespace SubjectHitman.Api.Infrastructure.Migrations
                     b.ToTable("subject_documents", (string)null);
                 });
 
-            modelBuilder.Entity("SubjectHitman.Api.Domain.Entities.SubjectName", b =>
+            modelBuilder.Entity("SubjectHitman.Domain.Entities.SubjectName", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -208,9 +208,9 @@ namespace SubjectHitman.Api.Infrastructure.Migrations
                     b.ToTable("subject_names", (string)null);
                 });
 
-            modelBuilder.Entity("SubjectHitman.Api.Domain.Entities.ReportUsage", b =>
+            modelBuilder.Entity("SubjectHitman.Domain.Entities.ReportUsage", b =>
                 {
-                    b.HasOne("SubjectHitman.Api.Domain.Entities.Subject", null)
+                    b.HasOne("SubjectHitman.Domain.Entities.Subject", null)
                         .WithMany()
                         .HasForeignKey("SubjectId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -218,9 +218,9 @@ namespace SubjectHitman.Api.Infrastructure.Migrations
                         .HasConstraintName("fk_report_usages_subjects_subject_id");
                 });
 
-            modelBuilder.Entity("SubjectHitman.Api.Domain.Entities.SearchKey", b =>
+            modelBuilder.Entity("SubjectHitman.Domain.Entities.SearchKey", b =>
                 {
-                    b.HasOne("SubjectHitman.Api.Domain.Entities.Subject", null)
+                    b.HasOne("SubjectHitman.Domain.Entities.Subject", null)
                         .WithMany("SearchKeys")
                         .HasForeignKey("SubjectId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -228,9 +228,9 @@ namespace SubjectHitman.Api.Infrastructure.Migrations
                         .HasConstraintName("fk_search_keys_subjects_subject_id");
                 });
 
-            modelBuilder.Entity("SubjectHitman.Api.Domain.Entities.SubjectDocument", b =>
+            modelBuilder.Entity("SubjectHitman.Domain.Entities.SubjectDocument", b =>
                 {
-                    b.HasOne("SubjectHitman.Api.Domain.Entities.Subject", null)
+                    b.HasOne("SubjectHitman.Domain.Entities.Subject", null)
                         .WithMany("Documents")
                         .HasForeignKey("SubjectId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -238,9 +238,9 @@ namespace SubjectHitman.Api.Infrastructure.Migrations
                         .HasConstraintName("fk_subject_documents_subjects_subject_id");
                 });
 
-            modelBuilder.Entity("SubjectHitman.Api.Domain.Entities.SubjectName", b =>
+            modelBuilder.Entity("SubjectHitman.Domain.Entities.SubjectName", b =>
                 {
-                    b.HasOne("SubjectHitman.Api.Domain.Entities.Subject", null)
+                    b.HasOne("SubjectHitman.Domain.Entities.Subject", null)
                         .WithMany("Names")
                         .HasForeignKey("SubjectId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -248,7 +248,7 @@ namespace SubjectHitman.Api.Infrastructure.Migrations
                         .HasConstraintName("fk_subject_names_subjects_subject_id");
                 });
 
-            modelBuilder.Entity("SubjectHitman.Api.Domain.Entities.Subject", b =>
+            modelBuilder.Entity("SubjectHitman.Domain.Entities.Subject", b =>
                 {
                     b.Navigation("Documents");
 

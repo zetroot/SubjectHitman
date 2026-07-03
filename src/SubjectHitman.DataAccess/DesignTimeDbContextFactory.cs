@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
-namespace SubjectHitman.Api.Infrastructure;
+namespace SubjectHitman.DataAccess;
 
 /// <summary>
 /// Фабрика времени разработки для <see cref="AppDbContext"/>, используемая инструментарием

@@ -4,6 +4,7 @@ using SubjectHitman.Abstractions.Messages;
 using SubjectHitman.Api.Domain;
 using SubjectHitman.Api.Infrastructure;
 using SubjectHitman.Api.Sagas;
+using SubjectHitman.DataAccess;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.ErrorHandling;
@@ -42,6 +43,8 @@ builder.Services.AddDbContextWithWolverineIntegration<AppDbContext>(
     (services, options) => options
         .UseNpgsql(postgresConnectionString)
         .UseSnakeCaseNamingConvention());
+
+builder.Services.AddDataAccess();
 
 builder.Services.AddScoped<SubjectIdentificationService>();
 builder.Services.AddScoped<FreeReportCounter>();

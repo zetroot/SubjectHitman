@@ -1,5 +1,5 @@
 using SubjectHitman.Api.Domain;
-using SubjectHitman.Api.Domain.Entities;
+using SubjectHitman.Domain.Entities;
 
 namespace SubjectHitman.UnitTests;
 

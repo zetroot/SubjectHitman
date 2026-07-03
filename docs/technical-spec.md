@@ -58,7 +58,7 @@ HTTP API и обработчики сообщений хостятся **в од
 
 ### 2.2. Структура решения
 
-Фактическая структура (as-built). Отличия от первоначального проекта: контракты сообщений и общие DTO вынесены в отдельный проект **`SubjectHitman.Abstractions`** (без зависимости от Wolverine — см. § 7.6), формат решения — `.slnx`, каталог тестов — `test/`.
+Фактическая структура (as-built). Отличия от первоначального проекта: контракты сообщений и общие DTO вынесены в отдельный проект **`SubjectHitman.Abstractions`** (без зависимости от Wolverine — см. § 7.6), слой хранения выделен в **`SubjectHitman.Domain`** + **`SubjectHitman.DataAccess`** (Δ8), формат решения — `.slnx`, каталог тестов — `test/`.
 
 ```
 SubjectHitman.slnx
@@ -70,6 +70,18 @@ SubjectHitman.slnx
 │   │   ├── SubjectData.cs, IdentityDocumentData.cs, PersonNameData.cs
 │   │   ├── IReportStatusClient.cs, ReportStatus.cs
 │   │   └── (НЕ ссылается на Wolverine)
+│   ├── SubjectHitman.Domain/           # сущности + интерфейсы репозиториев
+│   │   ├── Entities/                   # Subject, SubjectName, SubjectDocument,
+│   │   │                               # SearchKey, ReportUsage (+ enums)
+│   │   ├── Repositories/               # ISubjectRepository, IReportUsageRepository
+│   │   └── SearchKeyValue.cs           # значение поискового ключа
+│   ├── SubjectHitman.DataAccess/       # EF Core: DbContext, миграции, реализации репозиториев
+│   │   ├── AppDbContext.cs
+│   │   ├── DesignTimeDbContextFactory.cs
+│   │   ├── DataAccessServiceCollectionExtensions.cs
+│   │   ├── Configurations/             # IEntityTypeConfiguration<> классы
+│   │   ├── Repositories/               # SubjectRepository, ReportUsageRepository
+│   │   └── Migrations/                 # InitialSchema
 │   ├── SubjectHitman.Api/              # хост: minimal API + Wolverine + EF Core
 │   │   ├── Program.cs
 │   │   ├── Endpoints/UsageQueryEndpoint.cs
@@ -83,12 +95,8 @@ SubjectHitman.slnx
 │   │   │   ├── SearchKeyBuilder.cs             # K1..K6 + SHA256 (§ 5.3)
 │   │   │   ├── NormalizedSubject.cs
 │   │   │   ├── FreeReportCounter.cs            # выборка + cooldown (§ 6)
-│   │   │   ├── FreeReportsOptions.cs
-│   │   │   └── Entities/                       # Subject, SubjectName, SubjectDocument,
-│   │   │                                       # SearchKey, ReportUsage (+ enums)
+│   │   │   └── FreeReportsOptions.cs
 │   │   ├── Infrastructure/
-│   │   │   ├── AppDbContext.cs + Migrations/   # InitialSchema
-│   │   │   ├── DesignTimeDbContextFactory.cs
 │   │   │   └── ReportStatusClient.cs           # HTTP-реализация IReportStatusClient
 │   │   └── appsettings.json
 │   └── SubjectHitman.ReportStatusMock/ # мок статус-API (D5)
@@ -595,6 +603,7 @@ HTTP-реализация: `HttpClient` через `IHttpClientFactory`, timeout
 | Δ5 | Ретраи консюмера: экспоненциальная задержка, 3 попытки | `RetryWithCooldown(1s, 5s, 15s)` → move to error queue | Эквивалентная политика штатными средствами Wolverine |
 | Δ6 | `SubjectHitman.sln`, каталог `tests/` | `SubjectHitman.slnx`, каталог `test/` | Современный формат решения |
 | Δ7 | Health readiness «доступность PostgreSQL» | `AddDbContextCheck<AppDbContext>` на `GET /health` | Одна проверка покрывает liveness+readiness на этой итерации |
+| Δ8 | `AppDbContext` и миграции в проекте Api; конфигурация в `OnModelCreating` | Выделены `SubjectHitman.Domain` (сущности + интерфейсы репозиториев) и `SubjectHitman.DataAccess` (DbContext, `IEntityTypeConfiguration<>`, миграции, реализации репозиториев). Потребители Api переключены на `ISubjectRepository` / `IReportUsageRepository`. | Dependency inversion: слой Api не зависит от деталей хранения. |
 
 Функциональные требования (Q1–Q5, D1–D5, US-1..US-3) реализованы без отклонений.
 
@@ -604,6 +613,7 @@ HTTP-реализация: `HttpClient` через `IHttpClientFactory`, timeout
 2. **Флаш доменных сущностей.** Несмотря на `UseEntityFrameworkCoreTransactions()` + `Policies.AutoApplyTransactions()`, изменения в `AppDbContext` из обработчиков саги требуют явного `SaveChangesAsync`. Симптом при пропуске: `InvalidOperationException: Запись учёта для отчёта … не найдена` в `FinishAsync`.
 3. **`NotFound` для timeout — штатный путь.** Scheduled-сообщение `ReportStatusCheckTimeout` всегда срабатывает после завершения саги по `ReportCompleted`/`ReportFailed`; обрабатывается статическим `NotFound` с логом `Debug` (не `Warning` — это не аномалия).
 4. **Двойная защита идемпотентности финализации.** `FinishAsync` меняет статус только из `Pending`; повторные `ReportCompleted`/`ReportFailed` после завершения саги попадают в `NotFound` (Q2).
+5. **Слой доступа к данным.** Выделены `SubjectHitman.Domain` (сущности + `ISubjectRepository`/`IReportUsageRepository`) и `SubjectHitman.DataAccess` (DbContext, `IEntityTypeConfiguration<>`, миграции, реализации). `SubjectIdentificationService` передаёт бизнес-логику в `ISubjectRepository.ExecuteIdentificationAsync` через коллбэк; транзакции, advisory-блокировки и ретраи инкапсулированы в `SubjectRepository` (DataAccess).
 
 ### 12.4. Возможные улучшения (вне скоупа итерации)
 

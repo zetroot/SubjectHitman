@@ -71,11 +71,21 @@ SubjectHitman.slnx
 │   │   ├── SubjectData.cs, IdentityDocumentData.cs, PersonNameData.cs
 │   │   ├── IReportStatusClient.cs, ReportStatus.cs
 │   │   └── (НЕ ссылается на Wolverine)
-│   ├── SubjectHitman.Domain/           # сущности + интерфейсы репозиториев
-│   │   ├── Entities/                   # Subject, SubjectName, SubjectDocument,
-│   │   │                               # SearchKey, ReportUsage (+ enums)
-│   │   ├── Repositories/               # ISubjectRepository, IReportUsageRepository
-│   │   └── SearchKeyValue.cs           # значение поискового ключа
+    │   ├── SubjectHitman.Domain/           # сущности + интерфейсы репозиториев + бизнес-сервисы (Δ11)
+    │   │   ├── Entities/                   # Subject, SubjectName, SubjectDocument,
+    │   │   │                               # SearchKey, ReportUsage (+ enums)
+    │   │   ├── Repositories/               # ISubjectRepository, IReportUsageRepository
+    │   │   ├── SearchKeyValue.cs           # значение поискового ключа
+    │   │   ├── Identification/             # нормализация, ключи K1..K6, идентификация (§ 5)
+    │   │   │   ├── PersonalDataNormalizer.cs
+    │   │   │   ├── NormalizedSubject.cs
+    │   │   │   ├── SearchKeyBuilder.cs
+    │   │   │   └── SubjectIdentificationService.cs
+    │   │   ├── Counting/                   # подсчёт + cooldown (§ 6)
+    │   │   │   ├── FreeReportCounter.cs
+    │   │   │   └── FreeReportsOptions.cs
+    │   │   ├── Telemetry/                  # IDomainMetricsPublisher (Δ11)
+    │   │   └── DomainServiceCollectionExtensions.cs
   │   ├── SubjectHitman.DataAccess/       # EF Core: DbContext, миграции, реализации репозиториев
   │   │   ├── AppDbContext.cs
   │   │   ├── DesignTimeDbContextFactory.cs
@@ -84,27 +94,20 @@ SubjectHitman.slnx
   │   │   ├── Repositories/               # SubjectRepository, ReportUsageRepository
   │   │   ├── Telemetry/                  # IDataAccessMetricsPublisher, метрики слоя данных (Δ10)
   │   │   └── Migrations/                 # InitialSchema
-  │   ├── SubjectHitman.Api/              # хост: minimal API + Wolverine + EF Core
-  │   │   ├── Program.cs
-  │   │   ├── Endpoints/UsageQueryEndpoint.cs
-  │   │   ├── Sagas/
-  │   │   │   ├── ReportAccountingSaga.cs         # § 7.3
-  │   │   │   ├── ReportStatusCheckTimeout.cs     # внутреннее scheduled-сообщение
-  │   │   │   └── SagaOptions.cs
-  │   │   ├── Telemetry/                  # IApiMetricsPublisher, метрики прикладного уровня (Δ10)
-  │   │   ├── Domain/
-│   │   │   ├── SubjectIdentificationService.cs
-│   │   │   ├── PersonalDataNormalizer.cs       # нормализация § 5.1–5.2
-│   │   │   ├── SearchKeyBuilder.cs             # K1..K6 + SHA256 (§ 5.3)
-│   │   │   ├── NormalizedSubject.cs
-│   │   │   ├── FreeReportCounter.cs            # выборка + cooldown (§ 6)
-│   │   │   └── FreeReportsOptions.cs
-│   │   ├── Infrastructure/
-│   │   │   └── ReportStatusClient.cs           # HTTP-реализация IReportStatusClient
-│   │   └── appsettings.json
+    │   ├── SubjectHitman.Api/              # хост: minimal API + Wolverine + EF Core
+    │   │   ├── Program.cs
+    │   │   ├── Endpoints/UsageQueryEndpoint.cs
+    │   │   ├── Sagas/
+    │   │   │   ├── ReportAccountingSaga.cs         # § 7.3
+    │   │   │   ├── ReportStatusCheckTimeout.cs     # внутреннее scheduled-сообщение
+    │   │   │   └── SagaOptions.cs
+    │   │   ├── Telemetry/                  # IApiMetricsPublisher, ApiMetricsPublisher (Δ10, Δ11)
+    │   │   ├── Infrastructure/
+    │   │   │   └── ReportStatusClient.cs           # HTTP-реализация IReportStatusClient
+    │   │   └── appsettings.json
 │   └── SubjectHitman.ReportStatusMock/ # мок статус-API (D5)
 ├── test/
-│   ├── SubjectHitman.UnitTests/        # 63 теста: нормализация, ключи, cooldown,
+    │   ├── SubjectHitman.UnitTests/        # 73 теста: нормализация, ключи, cooldown,
 │   │                                   # разрешение конфликтов, валидация
 │   └── SubjectHitman.IntegrationTests/ # 11 тестов: Testcontainers PostgreSQL + RabbitMQ,
 │                                       # WebApplicationFactory, стаб IReportStatusClient
@@ -596,7 +599,7 @@ HTTP-реализация: `HttpClient` через `IHttpClientFactory`, timeout
 
 ### 12.1. Итог
 
-Компонент реализован полностью, все задачи T1–T10 закрыты. Тесты: **63 unit + 11 integration = 74/74 зелёные**. Интеграционные тесты — Testcontainers (`postgres:17-alpine`, `rabbitmq:4-management-alpine`) + `WebApplicationFactory<Program>`; `IReportStatusClient` подменяется управляемым стабом, `Saga:Timeout` в тестах — 2 сек, `MaxTimeoutRetries` — 2.
+Компонент реализован полностью, все задачи T1–T10 закрыты. Тесты: **73 unit + 11 integration = 84/84 зелёные**. Интеграционные тесты — Testcontainers (`postgres:17-alpine`, `rabbitmq:4-management-alpine`) + `WebApplicationFactory<Program>`; `IReportStatusClient` подменяется управляемым стабом, `Saga:Timeout` в тестах — 2 сек, `MaxTimeoutRetries` — 2.
 
 ### 12.2. Отклонения от первоначальной спеки
 
@@ -612,6 +615,7 @@ HTTP-реализация: `HttpClient` через `IHttpClientFactory`, timeout
 | Δ8 | `AppDbContext` и миграции в проекте Api; конфигурация в `OnModelCreating` | Выделены `SubjectHitman.Domain` (сущности + интерфейсы репозиториев) и `SubjectHitman.DataAccess` (DbContext, `IEntityTypeConfiguration<>`, миграции, реализации репозиториев). Потребители Api переключены на `ISubjectRepository` / `IReportUsageRepository`. | Dependency inversion: слой Api не зависит от деталей хранения. |
 | Δ9 | Версии пакетов в `PackageReference` каждого `.csproj` | NuGet Central Package Management: все версии (19 пакетов) централизованы в `Directory.Packages.props`; атрибут `Version` удалён из `PackageReference` в 4 проектах. | Единый источник версий, упрощение обновлений. |
 | Δ10 | Только структурированные логи | Добавлены Prometheus-метрики через OpenTelemetry: 14 счётчиков + 3 гистограммы в двух Meter'ах (`SubjectHitman.Api`, `SubjectHitman.DataAccess`), `GET /metrics`. Используется `OpenTelemetry.Exporter.Prometheus.AspNetCore` (prerelease 1.16.0-beta.1). | Мониторинг саг, идентификации, статус-API и слоя данных в проде.
+| Δ11 | Бизнес-логика в `SubjectHitman.Api/Domain/` (SubjectIdentificationService, PersonalDataNormalizer, SearchKeyBuilder, FreeReportCounter) | Бизнес-логика перенесена в `SubjectHitman.Domain` (подкаталоги `Identification/` и `Counting/`). `SubjectHitman.Domain` ссылается на `SubjectHitman.Abstractions`. `IDomainMetricsPublisher` выделен в Domain/Telemetry, `ApiMetricsPublisher` реализует и `IApiMetricsPublisher`, и `IDomainMetricsPublisher`. Слой Api содержит только техническую часть (HTTP, Wolverine, валидаторы, телеметрия-инфраструктура). | Чистая архитектура: Api — технический хост, Domain — бизнес-логика. |
 
 Функциональные требования (Q1–Q5, D1–D5, US-1..US-3) реализованы без отклонений.
 
@@ -622,7 +626,7 @@ HTTP-реализация: `HttpClient` через `IHttpClientFactory`, timeout
 3. **`NotFound` для timeout — штатный путь.** Scheduled-сообщение `ReportStatusCheckTimeout` всегда срабатывает после завершения саги по `ReportCompleted`/`ReportFailed`; обрабатывается статическим `NotFound` с логом `Debug` (не `Warning` — это не аномалия).
 4. **Двойная защита идемпотентности финализации.** `FinishAsync` меняет статус только из `Pending`; повторные `ReportCompleted`/`ReportFailed` после завершения саги попадают в `NotFound` (Q2).
 5. **Слой доступа к данным.** Выделены `SubjectHitman.Domain` (сущности + `ISubjectRepository`/`IReportUsageRepository`) и `SubjectHitman.DataAccess` (DbContext, `IEntityTypeConfiguration<>`, миграции, реализации). `SubjectIdentificationService` передаёт бизнес-логику в `ISubjectRepository.ExecuteIdentificationAsync` через коллбэк; транзакции, advisory-блокировки и ретраи инкапсулированы в `SubjectRepository` (DataAccess).
-6. **Публикаторы метрик.** Метрики живут в классах `ApiMetricsPublisher` и `DataAccessMetricsPublisher` (singleton через интерфейс `IApiMetricsPublisher`/`IDataAccessMetricsPublisher`), создающих `Meter` через `IMeterFactory`. Новые метрики добавляются только через публикаторы; прямое создание `Meter` в бизнес-коде запрещено. DataAccess-публикатор не тянет OpenTelemetry — только `Microsoft.Extensions.Diagnostics.Abstractions`.
+6. **Публикаторы метрик и разделение зон ответственности (Δ11).** Метрики живут в классах `ApiMetricsPublisher` и `DataAccessMetricsPublisher` (singleton через интерфейсы `IApiMetricsPublisher`/`IDataAccessMetricsPublisher`/`IDomainMetricsPublisher`), создающих `Meter` через `IMeterFactory`. `IApiMetricsPublisher` — саги и статус-API (Api), `IDomainMetricsPublisher` — идентификация (Domain). Один экземпляр `ApiMetricsPublisher` реализует оба интерфейса и регистрируется единожды. Новые метрики добавляются только через публикаторы; прямое создание `Meter` в бизнес-коде запрещено. DataAccess-публикатор не тянет OpenTelemetry — только `Microsoft.Extensions.Diagnostics.Abstractions`.
 
 ### 12.4. Возможные улучшения (вне скоупа итерации)
 

@@ -1,14 +1,16 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Microsoft.Extensions.Diagnostics.Metrics;
+using SubjectHitman.Domain.Telemetry;
 
 namespace SubjectHitman.Api.Telemetry;
 
 /// <summary>
 /// Публикатор метрик прикладного уровня.
 /// Создаёт <see cref="Meter"/> с именем <c>SubjectHitman.Api</c> через фабрику из DI.
+/// Реализует как <see cref="IApiMetricsPublisher"/> (саги, статус-API), так и <see cref="IDomainMetricsPublisher"/> (идентификация).
 /// </summary>
-public sealed class ApiMetricsPublisher : IApiMetricsPublisher, IDisposable
+public sealed class ApiMetricsPublisher : IApiMetricsPublisher, IDomainMetricsPublisher, IDisposable
 {
     private readonly Counter<long> _sagaStarted;
     private readonly Counter<long> _sagaDuplicateOrders;

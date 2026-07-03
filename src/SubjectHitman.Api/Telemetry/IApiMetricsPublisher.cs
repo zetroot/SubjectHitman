@@ -1,7 +1,7 @@
 namespace SubjectHitman.Api.Telemetry;
 
 /// <summary>
-/// Контракт публикатора метрик прикладного уровня (саги, идентификация, статус-API).
+/// Контракт публикатора метрик прикладного уровня (саги, статус-API).
 /// </summary>
 public interface IApiMetricsPublisher
 {
@@ -22,20 +22,6 @@ public interface IApiMetricsPublisher
     /// <summary>Регистрирует осиротевшее событие саги (NotFound).</summary>
     /// <param name="eventType">Тип события: <c>ReportCompleted</c>, <c>ReportFailed</c>.</param>
     void SagaOrphanedEvent(string eventType);
-
-    /// <summary>Регистрирует завершение идентификации субъекта.</summary>
-    /// <param name="outcome"><c>created</c> или <c>matched</c>.</param>
-    void IdentificationCompleted(string outcome);
-
-    /// <summary>Регистрирует разрешение конфликта при >1 кандидате на идентификацию.</summary>
-    void IdentificationConflictResolved();
-
-    /// <summary>Регистрирует конфликт скалярного ПДн при merge.</summary>
-    /// <param name="field">Поле: <c>birth_date</c>, <c>inn</c> или <c>snils</c>.</param>
-    void IdentificationPdConflict(string field);
-
-    /// <summary>Начинает измерение длительности идентификации и возвращает токен для завершения замера.</summary>
-    IDisposable MeasureIdentificationDuration();
 
     /// <summary>Регистрирует результат запроса к статус-API.</summary>
     /// <param name="result"><c>success</c>, <c>failed</c> или <c>unknown</c>.</param>

@@ -4,12 +4,14 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using SubjectHitman.Abstractions;
 using SubjectHitman.Abstractions.Messages;
-using SubjectHitman.Api.Domain;
 using SubjectHitman.Api.Endpoints;
 using SubjectHitman.Api.Infrastructure;
 using SubjectHitman.Api.Sagas;
 using SubjectHitman.Api.Telemetry;
 using SubjectHitman.DataAccess;
+using SubjectHitman.Domain;
+using SubjectHitman.Domain.Counting;
+using SubjectHitman.Domain.Telemetry;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.ErrorHandling;
@@ -44,7 +46,9 @@ builder.Services.AddOptions<ReportStatusApiOptions>()
 
 builder.Services.AddSingleton(TimeProvider.System);
 
-builder.Services.AddSingleton<IApiMetricsPublisher, ApiMetricsPublisher>();
+builder.Services.AddSingleton<ApiMetricsPublisher>();
+builder.Services.AddSingleton<IApiMetricsPublisher>(sp => sp.GetRequiredService<ApiMetricsPublisher>());
+builder.Services.AddSingleton<IDomainMetricsPublisher>(sp => sp.GetRequiredService<ApiMetricsPublisher>());
 
 builder.Services.AddDbContextWithWolverineIntegration<AppDbContext>(
     (services, options) => options
@@ -53,8 +57,7 @@ builder.Services.AddDbContextWithWolverineIntegration<AppDbContext>(
 
 builder.Services.AddDataAccess();
 
-builder.Services.AddScoped<SubjectIdentificationService>();
-builder.Services.AddScoped<FreeReportCounter>();
+builder.Services.AddDomainServices();
 
 builder.Services.AddHttpClient<IReportStatusClient, ReportStatusClient>((services, client) =>
 {

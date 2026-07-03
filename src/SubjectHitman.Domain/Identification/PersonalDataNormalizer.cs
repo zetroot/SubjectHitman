@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace SubjectHitman.Api.Domain;
+namespace SubjectHitman.Domain.Identification;
 
 /// <summary>
 /// Правила нормализации персональных данных субъекта (техническая спецификация, § 5.1–5.2).

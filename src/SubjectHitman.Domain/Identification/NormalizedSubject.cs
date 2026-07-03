@@ -1,6 +1,6 @@
 using SubjectHitman.Abstractions;
 
-namespace SubjectHitman.Api.Domain;
+namespace SubjectHitman.Domain.Identification;
 
 /// <summary>
 /// Нормализованное полное имя (все компоненты в верхнем регистре, транслитерированы, <c>"-"</c> для отсутствующих частей).

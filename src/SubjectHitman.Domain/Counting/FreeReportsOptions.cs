@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace SubjectHitman.Api.Domain;
+namespace SubjectHitman.Domain.Counting;
 
 /// <summary>
 /// Настройки логики подсчёта бесплатных отчётов.

@@ -1,7 +1,8 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Http.HttpResults;
 using SubjectHitman.Abstractions.Api;
-using SubjectHitman.Api.Domain;
+using SubjectHitman.Domain.Counting;
+using SubjectHitman.Domain.Identification;
 using Wolverine.Http;
 
 namespace SubjectHitman.Api.Endpoints;

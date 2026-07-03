@@ -1,4 +1,4 @@
-using SubjectHitman.Api.Domain;
+using SubjectHitman.Domain.Identification;
 
 namespace SubjectHitman.UnitTests;
 

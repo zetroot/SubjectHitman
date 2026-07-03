@@ -2,7 +2,7 @@ using Microsoft.Extensions.Options;
 using SubjectHitman.Domain.Entities;
 using SubjectHitman.Domain.Repositories;
 
-namespace SubjectHitman.Api.Domain;
+namespace SubjectHitman.Domain.Counting;
 
 /// <summary>
 /// Результат подсчёта использованных бесплатных отчётов.

@@ -1,6 +1,6 @@
 using FluentValidation;
 using SubjectHitman.Abstractions.Api;
-using SubjectHitman.Api.Domain;
+using SubjectHitman.Domain.Identification;
 
 namespace SubjectHitman.Api.Endpoints;
 

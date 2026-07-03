@@ -1,9 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
-using SubjectHitman.Domain;
 using SubjectHitman.Domain.Entities;
 
-namespace SubjectHitman.Api.Domain;
+namespace SubjectHitman.Domain.Identification;
 
 /// <summary>
 /// Вычисляет поисковые ключи K1..K6 субъекта на основе его нормализованных персональных данных

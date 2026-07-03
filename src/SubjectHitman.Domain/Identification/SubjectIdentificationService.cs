@@ -1,10 +1,10 @@
+using Microsoft.Extensions.Logging;
 using SubjectHitman.Abstractions;
-using SubjectHitman.Api.Telemetry;
-using SubjectHitman.Domain;
 using SubjectHitman.Domain.Entities;
 using SubjectHitman.Domain.Repositories;
+using SubjectHitman.Domain.Telemetry;
 
-namespace SubjectHitman.Api.Domain;
+namespace SubjectHitman.Domain.Identification;
 
 /// <summary>
 /// Идентифицирует субъекта кредитной истории в локальном реестре по поисковым ключам,
@@ -13,12 +13,12 @@ namespace SubjectHitman.Api.Domain;
 /// </summary>
 /// <param name="subjectRepository">Репозиторий субъектов (advisory-блокировки, транзакции, ретраи).</param>
 /// <param name="timeProvider">Источник времени, используемый для отметки создания субъекта.</param>
-/// <param name="metrics">Публикатор метрик прикладного уровня.</param>
+/// <param name="metrics">Публикатор метрик доменного уровня.</param>
 /// <param name="logger">Логгер.</param>
 public class SubjectIdentificationService(
     ISubjectRepository subjectRepository,
     TimeProvider timeProvider,
-    IApiMetricsPublisher metrics,
+    IDomainMetricsPublisher metrics,
     ILogger<SubjectIdentificationService> logger)
 {
     /// <summary>

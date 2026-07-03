@@ -33,37 +33,37 @@ public sealed class ApiMetricsPublisher : IApiMetricsPublisher, IDomainMetricsPu
         var meter = meterFactory.Create("SubjectHitman.Api");
 
         _sagaStarted = meter.CreateCounter<long>(
-            "saga.started", "events", "Количество стартов саги");
+            "saga.started", "events", "Number of saga starts");
 
         _sagaDuplicateOrders = meter.CreateCounter<long>(
-            "saga.duplicate_orders", "events", "Количество дубликатов ReportOrdered");
+            "saga.duplicate_orders", "events", "Number of duplicate ReportOrdered received");
 
         _sagaFinished = meter.CreateCounter<long>(
-            "saga.finished", "events", "Количество завершённых саг");
+            "saga.finished", "events", "Number of finished sagas");
 
         _sagaTimeoutRechecks = meter.CreateCounter<long>(
-            "saga.timeout_rechecks", "events", "Количество повторных проверок статуса по таймауту");
+            "saga.timeout_rechecks", "events", "Number of timeout status rechecks");
 
         _sagaOrphanedEvents = meter.CreateCounter<long>(
-            "saga.orphaned_events", "events", "Количество осиротевших событий саги");
+            "saga.orphaned_events", "events", "Number of orphaned saga events");
 
         _identificationCompleted = meter.CreateCounter<long>(
-            "identification.completed", "identifications", "Количество завершённых идентификаций");
+            "identification.completed", "identifications", "Number of completed identifications");
 
         _identificationConflictsResolved = meter.CreateCounter<long>(
-            "identification.conflicts_resolved", "conflicts", "Количество разрешённых конфликтов при идентификации");
+            "identification.conflicts_resolved", "conflicts", "Number of resolved identification conflicts");
 
         _identificationPdConflicts = meter.CreateCounter<long>(
-            "identification.pd_conflicts", "conflicts", "Количество конфликтов скалярных ПДн при merge");
+            "identification.pd_conflicts", "conflicts", "Number of scalar personal data conflicts during merge");
 
         _identificationDuration = meter.CreateHistogram<double>(
-            "identification.duration", "ms", "Длительность идентификации субъекта в миллисекундах");
+            "identification.duration", "ms", "Subject identification duration in milliseconds");
 
         _reportStatusRequests = meter.CreateCounter<long>(
-            "report_status.requests", "requests", "Количество запросов к статус-API");
+            "report_status.requests", "requests", "Number of status API requests");
 
         _reportStatusDuration = meter.CreateHistogram<double>(
-            "report_status.duration", "ms", "Длительность запроса к статус-API в миллисекундах");
+            "report_status.duration", "ms", "Status API request duration in milliseconds");
     }
 
     /// <inheritdoc />

@@ -67,12 +67,16 @@ public class SubjectIdentificationService(
         Guid subjectId;
         if (confirmed.Count == 0)
         {
+            logger.LogDebug("No matching subjects found, creating new subject");
             subjectId = await CreateSubjectAsync(normalized, repo, ct);
             logger.LogInformation("Created new subject {SubjectId} with {KeyCount} search keys", subjectId, requestKeys.Count);
             metrics.IdentificationCompleted("created");
         }
         else
         {
+            logger.LogDebug(
+                "Found {CandidateCount} matching subjects, picking winner",
+                confirmed.Count);
             subjectId = await PickWinnerAsync(confirmed.ToDictionary(
                 g => g.Key,
                 g => g.Select(m => m.KeyType).Distinct().OrderBy(t => t).ToList()), repo, ct);
@@ -99,12 +103,15 @@ public class SubjectIdentificationService(
 
         metrics.IdentificationConflictResolved();
 
-        logger.LogInformation(
-            "Ambiguous identification resolved: {CandidateCount} candidates, winner {SubjectId} with {MatchCount} matched keys [{KeyTypes}]",
-            candidates.Count,
-            winner,
-            candidates[winner].Count,
-            string.Join(",", candidates[winner]));
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "Ambiguous identification resolved: {CandidateCount} candidates, winner {SubjectId} with {MatchCount} matched keys [{KeyTypes}]",
+                candidates.Count,
+                winner,
+                candidates[winner].Count,
+                string.Join(",", candidates[winner]));
+        }
 
         return winner;
     }

@@ -25,17 +25,17 @@ public sealed class DataAccessMetricsPublisher : IDataAccessMetricsPublisher, ID
         _uniqueViolationRetries = meter.CreateCounter<long>(
             "subject_repository.unique_violation_retries",
             "retries",
-            "Количество ретраев идентификации после UniqueViolation");
+            "Number of identification retries after UniqueViolation");
 
         _advisoryLocksAcquired = meter.CreateCounter<long>(
             "subject_repository.advisory_locks.acquired",
             "locks",
-            "Количество установленных advisory-блокировок PostgreSQL");
+            "Number of PostgreSQL advisory locks acquired");
 
         _transactionDuration = meter.CreateHistogram<double>(
             "subject_repository.transaction.duration",
             "ms",
-            "Длительность транзакции идентификации субъекта в миллисекундах");
+            "Subject identification transaction duration in milliseconds");
     }
 
     /// <inheritdoc />

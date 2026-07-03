@@ -64,11 +64,17 @@ public class ReportAccountingSaga : Saga
         IsFree = message.IsFree;
         OrderedAt = message.OrderedAt;
 
+        using var _ = logger.BeginScope(new Dictionary<string, object>
+        {
+            ["ReportId"] = message.ReportId,
+            ["IsFree"] = message.IsFree,
+        });
+
         var existing = await reportUsageRepository.FindAsync(message.ReportId, ct);
         if (existing is not null)
         {
             metrics.SagaDuplicateOrder();
-            logger.LogInformation("Повторный ReportOrdered для отчёта {ReportId}, игнорируется", message.ReportId);
+            logger.LogWarning("Duplicate ReportOrdered received, ignoring");
             SubjectId = existing.SubjectId;
         }
         else
@@ -86,10 +92,8 @@ public class ReportAccountingSaga : Saga
 
             metrics.SagaStarted();
             logger.LogInformation(
-                "Сага учёта запущена для отчёта {ReportId}, субъект {SubjectId}, isFree={IsFree}",
-                message.ReportId,
-                SubjectId,
-                message.IsFree);
+                "Report accounting saga started for subject {SubjectId}",
+                SubjectId);
         }
 
         var messages = new OutgoingMessages();
@@ -116,9 +120,10 @@ public class ReportAccountingSaga : Saga
         ILogger<ReportAccountingSaga> logger,
         CancellationToken ct)
     {
+        using var _ = logger.BeginScope(new Dictionary<string, object> { ["ReportId"] = message.ReportId });
         await FinishAsync(reportUsageRepository, timeProvider, ReportUsageStatus.Charged, ct);
         metrics.SagaFinished("charged", "event");
-        logger.LogInformation("Отчёт {ReportId} учтён как списанный", message.ReportId);
+        logger.LogInformation("Report accounted as charged");
         MarkCompleted();
     }
 
@@ -139,11 +144,11 @@ public class ReportAccountingSaga : Saga
         ILogger<ReportAccountingSaga> logger,
         CancellationToken ct)
     {
+        using var _ = logger.BeginScope(new Dictionary<string, object> { ["ReportId"] = message.ReportId });
         await FinishAsync(reportUsageRepository, timeProvider, ReportUsageStatus.NotCharged, ct);
         metrics.SagaFinished("not_charged", "event");
         logger.LogInformation(
-            "Отчёт {ReportId} учтён как не списанный (причина: {Reason})",
-            message.ReportId,
+            "Report accounted as not charged (reason: {Reason})",
             message.Reason ?? "-");
         MarkCompleted();
     }
@@ -171,6 +176,7 @@ public class ReportAccountingSaga : Saga
         ILogger<ReportAccountingSaga> logger,
         CancellationToken ct)
     {
+        using var _ = logger.BeginScope(new Dictionary<string, object> { ["ReportId"] = message.ReportId });
         var messages = new OutgoingMessages();
         var status = await statusClient.GetStatusAsync(message.ReportId, ct);
 
@@ -179,14 +185,14 @@ public class ReportAccountingSaga : Saga
             case ReportStatus.Success:
                 await FinishAsync(reportUsageRepository, timeProvider, ReportUsageStatus.Charged, ct);
                 metrics.SagaFinished("charged", "status_api");
-                logger.LogInformation("Отчёт {ReportId} разрешён как списанный через статусное API", message.ReportId);
+                logger.LogInformation("Report resolved as charged via status API");
                 MarkCompleted();
                 break;
 
             case ReportStatus.Failed:
                 await FinishAsync(reportUsageRepository, timeProvider, ReportUsageStatus.NotCharged, ct);
                 metrics.SagaFinished("not_charged", "status_api");
-                logger.LogInformation("Отчёт {ReportId} разрешён как не списанный через статусное API", message.ReportId);
+                logger.LogInformation("Report resolved as not charged via status API");
                 MarkCompleted();
                 break;
 
@@ -198,17 +204,15 @@ public class ReportAccountingSaga : Saga
                     await FinishAsync(reportUsageRepository, timeProvider, ReportUsageStatus.NotCharged, ct);
                     metrics.SagaFinished("not_charged", "retries_exhausted");
                     logger.LogWarning(
-                        "Отчёт {ReportId}: статус неизвестен после {Checks} проверок, учитывается как не списанный",
-                        message.ReportId,
+                        "Report status unknown after {Checks} checks, accounting as not charged",
                         TimeoutCheckCount);
                     MarkCompleted();
                 }
                 else
                 {
                     metrics.SagaTimeoutRecheck();
-                    logger.LogInformation(
-                        "Отчёт {ReportId}: статус неизвестен, проверка {Check}/{Max}, перепланирование",
-                        message.ReportId,
+                    logger.LogDebug(
+                        "Report status unknown, check {Check}/{Max}, rescheduling",
                         TimeoutCheckCount,
                         sagaOptions.Value.MaxTimeoutRetries);
                     messages.Schedule(
@@ -231,8 +235,9 @@ public class ReportAccountingSaga : Saga
     /// <param name="logger">Логгер.</param>
     public static void NotFound(ReportCompleted message, IApiMetricsPublisher metrics, ILogger<ReportAccountingSaga> logger)
     {
+        using var _ = logger.BeginScope(new Dictionary<string, object> { ["ReportId"] = message.ReportId });
         metrics.SagaOrphanedEvent("ReportCompleted");
-        logger.LogWarning("ReportCompleted для неизвестной саги {ReportId}, отбрасывается", message.ReportId);
+        logger.LogWarning("ReportCompleted for unknown saga, discarding");
     }
 
     /// <summary>
@@ -243,8 +248,9 @@ public class ReportAccountingSaga : Saga
     /// <param name="logger">Логгер.</param>
     public static void NotFound(ReportFailed message, IApiMetricsPublisher metrics, ILogger<ReportAccountingSaga> logger)
     {
+        using var _ = logger.BeginScope(new Dictionary<string, object> { ["ReportId"] = message.ReportId });
         metrics.SagaOrphanedEvent("ReportFailed");
-        logger.LogWarning("ReportFailed для неизвестной саги {ReportId}, отбрасывается", message.ReportId);
+        logger.LogWarning("ReportFailed for unknown saga, discarding");
     }
 
     /// <summary>
@@ -253,7 +259,10 @@ public class ReportAccountingSaga : Saga
     /// <param name="message">Осиротевшее timeout-сообщение.</param>
     /// <param name="logger">Логгер.</param>
     public static void NotFound(ReportStatusCheckTimeout message, ILogger<ReportAccountingSaga> logger)
-        => logger.LogDebug("Timeout для уже завершённой саги {ReportId}, игнорируется", message.ReportId);
+    {
+        using var _ = logger.BeginScope(new Dictionary<string, object> { ["ReportId"] = message.ReportId });
+        logger.LogDebug("Timeout for already completed saga, ignoring");
+    }
 
     private async Task FinishAsync(
         IReportUsageRepository reportUsageRepository,
@@ -262,7 +271,7 @@ public class ReportAccountingSaga : Saga
         CancellationToken ct)
     {
         var usage = await reportUsageRepository.FindAsync(ReportId, ct)
-            ?? throw new InvalidOperationException($"Запись учёта для отчёта {ReportId} не найдена.");
+            ?? throw new InvalidOperationException($"Report usage record for report {ReportId} not found.");
         if (usage.Status == ReportUsageStatus.Pending)
         {
             usage.Status = finalStatus;

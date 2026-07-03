@@ -37,16 +37,17 @@ public class ReportStatusClient(HttpClient httpClient, IApiMetricsPublisher metr
     /// <inheritdoc />
     public async Task<ReportStatus> GetStatusAsync(Guid reportId, CancellationToken ct)
     {
-        using var _ = metrics.MeasureReportStatusRequestDuration();
+        using var _ = logger.BeginScope(new Dictionary<string, object> { ["ReportId"] = reportId });
+        logger.LogDebug("Requesting report status from status API");
+        using var __ = metrics.MeasureReportStatusRequestDuration();
         try
         {
             var response = await httpClient.GetAsync(new Uri($"reports/{reportId}/status", UriKind.Relative), ct);
             if (!response.IsSuccessStatusCode)
             {
                 logger.LogWarning(
-                    "Status API returned {StatusCode} for report {ReportId}, treating as Unknown",
-                    (int)response.StatusCode,
-                    reportId);
+                    "Status API returned {StatusCode}, treating as Unknown",
+                    (int)response.StatusCode);
                 metrics.ReportStatusRequestCompleted("unknown");
                 return ReportStatus.Unknown;
             }
@@ -58,7 +59,7 @@ public class ReportStatusClient(HttpClient httpClient, IApiMetricsPublisher metr
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
-            logger.LogWarning(ex, "Status API call failed for report {ReportId}, treating as Unknown", reportId);
+            logger.LogWarning(ex, "Status API call failed, treating as Unknown");
             metrics.ReportStatusRequestCompleted("unknown");
             return ReportStatus.Unknown;
         }

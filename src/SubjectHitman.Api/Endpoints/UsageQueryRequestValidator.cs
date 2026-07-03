@@ -46,23 +46,14 @@ public class UsageQueryRequestValidator : AbstractValidator<UsageQueryRequest>
 
         When(x => x.PreviousName is not null, () =>
         {
-            RuleFor(x => x.PreviousName!.LastName)
-                .NotEmpty().WithMessage("Previous last name is required when previousName is provided.");
-
-            RuleFor(x => x.PreviousName!.FirstName)
-                .NotEmpty().WithMessage("Previous first name is required when previousName is provided.");
+            RuleFor(x => x.PreviousName!)
+                .SetValidator(personNameValidator);
         });
 
         When(x => x.PreviousDocument is not null, () =>
         {
             RuleFor(x => x.PreviousDocument!)
                 .SetValidator(documentValidator);
-
-            RuleFor(x => x.PreviousDocument!.TypeCode)
-                .NotEmpty().WithMessage("Document type code is required when previousDocument is provided.");
-
-            RuleFor(x => x.PreviousDocument!.Number)
-                .NotEmpty().WithMessage("Document number is required when previousDocument is provided.");
         });
 
         RuleFor(x => x.Inn)

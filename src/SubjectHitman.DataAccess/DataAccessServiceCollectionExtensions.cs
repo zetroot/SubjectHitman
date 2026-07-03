@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using SubjectHitman.DataAccess.Repositories;
+using SubjectHitman.DataAccess.Telemetry;
 using SubjectHitman.Domain.Repositories;
 
 namespace SubjectHitman.DataAccess;
@@ -18,6 +19,7 @@ public static class DataAccessServiceCollectionExtensions
     /// <returns>Та же коллекция сервисов для цепочки вызовов.</returns>
     public static IServiceCollection AddDataAccess(this IServiceCollection services)
     {
+        services.AddSingleton<IDataAccessMetricsPublisher, DataAccessMetricsPublisher>();
         services.AddScoped<ISubjectRepository, SubjectRepository>();
         services.AddScoped<IReportUsageRepository, ReportUsageRepository>();
         return services;

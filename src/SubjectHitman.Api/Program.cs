@@ -1,11 +1,14 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using SubjectHitman.Abstractions;
 using SubjectHitman.Abstractions.Messages;
 using SubjectHitman.Api.Domain;
 using SubjectHitman.Api.Endpoints;
 using SubjectHitman.Api.Infrastructure;
 using SubjectHitman.Api.Sagas;
+using SubjectHitman.Api.Telemetry;
 using SubjectHitman.DataAccess;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
@@ -40,6 +43,8 @@ builder.Services.AddOptions<ReportStatusApiOptions>()
     .ValidateOnStart();
 
 builder.Services.AddSingleton(TimeProvider.System);
+
+builder.Services.AddSingleton<IApiMetricsPublisher, ApiMetricsPublisher>();
 
 builder.Services.AddDbContextWithWolverineIntegration<AppDbContext>(
     (services, options) => options
@@ -88,6 +93,14 @@ builder.Services.AddProblemDetails();
 builder.Services.AddWolverineHttp();
 builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>("postgres");
 
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("SubjectHitman.Api"))
+    .WithMetrics(m => m
+        .AddAspNetCoreInstrumentation()
+        .AddMeter("SubjectHitman.Api")
+        .AddMeter("SubjectHitman.DataAccess")
+        .AddPrometheusExporter());
+
 var app = builder.Build();
 
 app.UseExceptionHandler();
@@ -95,6 +108,7 @@ app.UseStatusCodePages();
 
 app.MapWolverineEndpoints();
 app.MapHealthChecks("/health");
+app.MapPrometheusScrapingEndpoint();
 
 if (app.Configuration.GetValue("Database:ApplyMigrationsOnStartup", true))
 {

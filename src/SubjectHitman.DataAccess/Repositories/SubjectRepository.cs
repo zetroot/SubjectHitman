@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Npgsql;
+using SubjectHitman.DataAccess.Telemetry;
 using SubjectHitman.Domain;
 using SubjectHitman.Domain.Entities;
 using SubjectHitman.Domain.Repositories;
@@ -13,9 +14,11 @@ namespace SubjectHitman.DataAccess.Repositories;
 /// и автоматическим ретраем при гонках уникального ограничения (ровно 1 повтор).
 /// </summary>
 /// <param name="dbContext">Контекст базы данных.</param>
+/// <param name="metrics">Публикатор метрик слоя данных.</param>
 /// <param name="logger">Логгер.</param>
 public sealed class SubjectRepository(
     AppDbContext dbContext,
+    IDataAccessMetricsPublisher metrics,
     ILogger<SubjectRepository> logger) : ISubjectRepository
 {
     private const int MaxRetries = 1;
@@ -35,6 +38,7 @@ public sealed class SubjectRepository(
             catch (DbUpdateException ex) when (
                 attempt < MaxRetries && ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
             {
+                metrics.SubjectIdentificationRetry();
                 logger.LogWarning("Unique violation during subject identification, retrying (attempt {Attempt})", attempt + 1);
                 dbContext.ChangeTracker.Clear();
             }
@@ -96,6 +100,7 @@ public sealed class SubjectRepository(
         try
         {
             await AcquireAdvisoryLocksAsync(requestKeys, ct);
+            using var _ = metrics.MeasureTransactionDuration();
             var result = await body(this, ct);
             if (transaction is not null)
             {
@@ -124,5 +129,7 @@ public sealed class SubjectRepository(
         {
             await dbContext.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock({lockId})", ct);
         }
+
+        metrics.AdvisoryLocksAcquired(lockIds.Count);
     }
 }

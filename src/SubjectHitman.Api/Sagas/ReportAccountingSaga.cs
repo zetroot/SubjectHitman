@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using SubjectHitman.Abstractions;
 using SubjectHitman.Abstractions.Messages;
 using SubjectHitman.Api.Domain;
+using SubjectHitman.Api.Telemetry;
 using SubjectHitman.Domain.Entities;
 using SubjectHitman.Domain.Repositories;
 using Wolverine;
@@ -45,6 +46,7 @@ public class ReportAccountingSaga : Saga
     /// <param name="reportUsageRepository">Репозиторий учётных записей отчётов.</param>
     /// <param name="sagaOptions">Настройки саги.</param>
     /// <param name="timeProvider">Провайдер времени для планирования timeout.</param>
+    /// <param name="metrics">Публикатор метрик.</param>
     /// <param name="logger">Логгер.</param>
     /// <param name="ct">Токен отмены.</param>
     /// <returns>Исходящие сообщения с запланированным <see cref="ReportStatusCheckTimeout"/>.</returns>
@@ -54,6 +56,7 @@ public class ReportAccountingSaga : Saga
         IReportUsageRepository reportUsageRepository,
         IOptions<SagaOptions> sagaOptions,
         TimeProvider timeProvider,
+        IApiMetricsPublisher metrics,
         ILogger<ReportAccountingSaga> logger,
         CancellationToken ct)
     {
@@ -64,6 +67,7 @@ public class ReportAccountingSaga : Saga
         var existing = await reportUsageRepository.FindAsync(message.ReportId, ct);
         if (existing is not null)
         {
+            metrics.SagaDuplicateOrder();
             logger.LogInformation("Повторный ReportOrdered для отчёта {ReportId}, игнорируется", message.ReportId);
             SubjectId = existing.SubjectId;
         }
@@ -80,6 +84,7 @@ public class ReportAccountingSaga : Saga
             });
             await reportUsageRepository.SaveChangesAsync(ct);
 
+            metrics.SagaStarted();
             logger.LogInformation(
                 "Сага учёта запущена для отчёта {ReportId}, субъект {SubjectId}, isFree={IsFree}",
                 message.ReportId,
@@ -100,16 +105,19 @@ public class ReportAccountingSaga : Saga
     /// <param name="message">Событие успешного завершения.</param>
     /// <param name="reportUsageRepository">Репозиторий учётных записей отчётов.</param>
     /// <param name="timeProvider">Провайдер времени.</param>
+    /// <param name="metrics">Публикатор метрик.</param>
     /// <param name="logger">Логгер.</param>
     /// <param name="ct">Токен отмены.</param>
     public async Task Handle(
         [SagaIdentityFrom("ReportId")] ReportCompleted message,
         IReportUsageRepository reportUsageRepository,
         TimeProvider timeProvider,
+        IApiMetricsPublisher metrics,
         ILogger<ReportAccountingSaga> logger,
         CancellationToken ct)
     {
         await FinishAsync(reportUsageRepository, timeProvider, ReportUsageStatus.Charged, ct);
+        metrics.SagaFinished("charged", "event");
         logger.LogInformation("Отчёт {ReportId} учтён как списанный", message.ReportId);
         MarkCompleted();
     }
@@ -120,16 +128,19 @@ public class ReportAccountingSaga : Saga
     /// <param name="message">Событие неуспешного завершения.</param>
     /// <param name="reportUsageRepository">Репозиторий учётных записей отчётов.</param>
     /// <param name="timeProvider">Провайдер времени.</param>
+    /// <param name="metrics">Публикатор метрик.</param>
     /// <param name="logger">Логгер.</param>
     /// <param name="ct">Токен отмены.</param>
     public async Task Handle(
         [SagaIdentityFrom("ReportId")] ReportFailed message,
         IReportUsageRepository reportUsageRepository,
         TimeProvider timeProvider,
+        IApiMetricsPublisher metrics,
         ILogger<ReportAccountingSaga> logger,
         CancellationToken ct)
     {
         await FinishAsync(reportUsageRepository, timeProvider, ReportUsageStatus.NotCharged, ct);
+        metrics.SagaFinished("not_charged", "event");
         logger.LogInformation(
             "Отчёт {ReportId} учтён как не списанный (причина: {Reason})",
             message.ReportId,
@@ -146,6 +157,7 @@ public class ReportAccountingSaga : Saga
     /// <param name="reportUsageRepository">Репозиторий учётных записей отчётов.</param>
     /// <param name="sagaOptions">Настройки саги.</param>
     /// <param name="timeProvider">Провайдер времени для перепланирования.</param>
+    /// <param name="metrics">Публикатор метрик.</param>
     /// <param name="logger">Логгер.</param>
     /// <param name="ct">Токен отмены.</param>
     /// <returns>Исходящие сообщения: перепланированный timeout при Unknown-статусе, иначе пусто.</returns>
@@ -155,6 +167,7 @@ public class ReportAccountingSaga : Saga
         IReportUsageRepository reportUsageRepository,
         IOptions<SagaOptions> sagaOptions,
         TimeProvider timeProvider,
+        IApiMetricsPublisher metrics,
         ILogger<ReportAccountingSaga> logger,
         CancellationToken ct)
     {
@@ -165,12 +178,14 @@ public class ReportAccountingSaga : Saga
         {
             case ReportStatus.Success:
                 await FinishAsync(reportUsageRepository, timeProvider, ReportUsageStatus.Charged, ct);
+                metrics.SagaFinished("charged", "status_api");
                 logger.LogInformation("Отчёт {ReportId} разрешён как списанный через статусное API", message.ReportId);
                 MarkCompleted();
                 break;
 
             case ReportStatus.Failed:
                 await FinishAsync(reportUsageRepository, timeProvider, ReportUsageStatus.NotCharged, ct);
+                metrics.SagaFinished("not_charged", "status_api");
                 logger.LogInformation("Отчёт {ReportId} разрешён как не списанный через статусное API", message.ReportId);
                 MarkCompleted();
                 break;
@@ -181,6 +196,7 @@ public class ReportAccountingSaga : Saga
                 if (TimeoutCheckCount >= sagaOptions.Value.MaxTimeoutRetries)
                 {
                     await FinishAsync(reportUsageRepository, timeProvider, ReportUsageStatus.NotCharged, ct);
+                    metrics.SagaFinished("not_charged", "retries_exhausted");
                     logger.LogWarning(
                         "Отчёт {ReportId}: статус неизвестен после {Checks} проверок, учитывается как не списанный",
                         message.ReportId,
@@ -189,6 +205,7 @@ public class ReportAccountingSaga : Saga
                 }
                 else
                 {
+                    metrics.SagaTimeoutRecheck();
                     logger.LogInformation(
                         "Отчёт {ReportId}: статус неизвестен, проверка {Check}/{Max}, перепланирование",
                         message.ReportId,
@@ -210,17 +227,25 @@ public class ReportAccountingSaga : Saga
     /// (гонка с <see cref="ReportOrdered"/> или дубликат после завершения) — Q2: логировать и подтвердить.
     /// </summary>
     /// <param name="message">Осиротевшее событие.</param>
+    /// <param name="metrics">Публикатор метрик.</param>
     /// <param name="logger">Логгер.</param>
-    public static void NotFound(ReportCompleted message, ILogger<ReportAccountingSaga> logger)
-        => logger.LogWarning("ReportCompleted для неизвестной саги {ReportId}, отбрасывается", message.ReportId);
+    public static void NotFound(ReportCompleted message, IApiMetricsPublisher metrics, ILogger<ReportAccountingSaga> logger)
+    {
+        metrics.SagaOrphanedEvent("ReportCompleted");
+        logger.LogWarning("ReportCompleted для неизвестной саги {ReportId}, отбрасывается", message.ReportId);
+    }
 
     /// <summary>
     /// Обрабатывает <see cref="ReportFailed"/> для неизвестной саги — Q2: логировать и подтвердить.
     /// </summary>
     /// <param name="message">Осиротевшее событие.</param>
+    /// <param name="metrics">Публикатор метрик.</param>
     /// <param name="logger">Логгер.</param>
-    public static void NotFound(ReportFailed message, ILogger<ReportAccountingSaga> logger)
-        => logger.LogWarning("ReportFailed для неизвестной саги {ReportId}, отбрасывается", message.ReportId);
+    public static void NotFound(ReportFailed message, IApiMetricsPublisher metrics, ILogger<ReportAccountingSaga> logger)
+    {
+        metrics.SagaOrphanedEvent("ReportFailed");
+        logger.LogWarning("ReportFailed для неизвестной саги {ReportId}, отбрасывается", message.ReportId);
+    }
 
     /// <summary>
     /// Обрабатывает timeout для уже завершённой саги. Действий не требуется.

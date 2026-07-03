@@ -1,4 +1,5 @@
 using SubjectHitman.Abstractions;
+using SubjectHitman.Api.Telemetry;
 using SubjectHitman.Domain;
 using SubjectHitman.Domain.Entities;
 using SubjectHitman.Domain.Repositories;
@@ -12,10 +13,12 @@ namespace SubjectHitman.Api.Domain;
 /// </summary>
 /// <param name="subjectRepository">Репозиторий субъектов (advisory-блокировки, транзакции, ретраи).</param>
 /// <param name="timeProvider">Источник времени, используемый для отметки создания субъекта.</param>
+/// <param name="metrics">Публикатор метрик прикладного уровня.</param>
 /// <param name="logger">Логгер.</param>
 public class SubjectIdentificationService(
     ISubjectRepository subjectRepository,
     TimeProvider timeProvider,
+    IApiMetricsPublisher metrics,
     ILogger<SubjectIdentificationService> logger)
 {
     /// <summary>
@@ -37,6 +40,8 @@ public class SubjectIdentificationService(
         {
             throw new InvalidOperationException("No search keys could be computed from the request data.");
         }
+
+        using var _ = metrics.MeasureIdentificationDuration();
 
         return await subjectRepository.ExecuteIdentificationAsync(
             requestKeys,
@@ -64,6 +69,7 @@ public class SubjectIdentificationService(
         {
             subjectId = await CreateSubjectAsync(normalized, repo, ct);
             logger.LogInformation("Created new subject {SubjectId} with {KeyCount} search keys", subjectId, requestKeys.Count);
+            metrics.IdentificationCompleted("created");
         }
         else
         {
@@ -71,6 +77,7 @@ public class SubjectIdentificationService(
                 g => g.Key,
                 g => g.Select(m => m.KeyType).Distinct().OrderBy(t => t).ToList()), repo, ct);
             await MergeSubjectAsync(subjectId, normalized, repo, ct);
+            metrics.IdentificationCompleted("matched");
         }
 
         return subjectId;
@@ -89,6 +96,8 @@ public class SubjectIdentificationService(
         var createdAt = await repo.GetCreatedAtAsync(candidates.Keys, ct);
 
         var winner = ResolveWinner(candidates, createdAt);
+
+        metrics.IdentificationConflictResolved();
 
         logger.LogInformation(
             "Ambiguous identification resolved: {CandidateCount} candidates, winner {SubjectId} with {MatchCount} matched keys [{KeyTypes}]",
@@ -229,6 +238,7 @@ public class SubjectIdentificationService(
 
         if (!EqualityComparer<T?>.Default.Equals(current, incoming))
         {
+            metrics.IdentificationPdConflict(fieldName.ToLowerInvariant());
             // Q1 decision: keep the stored value, log a warning without exposing personal data.
             logger.LogWarning(
                 "Conflicting {Field} for subject {SubjectId}: incoming value differs from stored, keeping stored",

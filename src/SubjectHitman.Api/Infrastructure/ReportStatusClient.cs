@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Net.Http.Json;
 using SubjectHitman.Abstractions;
 using SubjectHitman.Abstractions.Api;
+using SubjectHitman.Api.Telemetry;
 
 namespace SubjectHitman.Api.Infrastructure;
 
@@ -29,12 +30,14 @@ public class ReportStatusApiOptions
 /// (повторные попытки — зона ответственности саги).
 /// </summary>
 /// <param name="httpClient">Настроенный HTTP-клиент.</param>
+/// <param name="metrics">Публикатор метрик прикладного уровня.</param>
 /// <param name="logger">Логгер.</param>
-public class ReportStatusClient(HttpClient httpClient, ILogger<ReportStatusClient> logger) : IReportStatusClient
+public class ReportStatusClient(HttpClient httpClient, IApiMetricsPublisher metrics, ILogger<ReportStatusClient> logger) : IReportStatusClient
 {
     /// <inheritdoc />
     public async Task<ReportStatus> GetStatusAsync(Guid reportId, CancellationToken ct)
     {
+        using var _ = metrics.MeasureReportStatusRequestDuration();
         try
         {
             var response = await httpClient.GetAsync(new Uri($"reports/{reportId}/status", UriKind.Relative), ct);
@@ -44,15 +47,19 @@ public class ReportStatusClient(HttpClient httpClient, ILogger<ReportStatusClien
                     "Status API returned {StatusCode} for report {ReportId}, treating as Unknown",
                     (int)response.StatusCode,
                     reportId);
+                metrics.ReportStatusRequestCompleted("unknown");
                 return ReportStatus.Unknown;
             }
 
             var body = await response.Content.ReadFromJsonAsync<ReportStatusResponse>(ct);
-            return body?.Status ?? ReportStatus.Unknown;
+            var result = body?.Status ?? ReportStatus.Unknown;
+            metrics.ReportStatusRequestCompleted(result.ToString().ToLowerInvariant());
+            return result;
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             logger.LogWarning(ex, "Status API call failed for report {ReportId}, treating as Unknown", reportId);
+            metrics.ReportStatusRequestCompleted("unknown");
             return ReportStatus.Unknown;
         }
     }

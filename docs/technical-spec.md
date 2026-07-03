@@ -76,21 +76,23 @@ SubjectHitman.slnx
 │   │   │                               # SearchKey, ReportUsage (+ enums)
 │   │   ├── Repositories/               # ISubjectRepository, IReportUsageRepository
 │   │   └── SearchKeyValue.cs           # значение поискового ключа
-│   ├── SubjectHitman.DataAccess/       # EF Core: DbContext, миграции, реализации репозиториев
-│   │   ├── AppDbContext.cs
-│   │   ├── DesignTimeDbContextFactory.cs
-│   │   ├── DataAccessServiceCollectionExtensions.cs
-│   │   ├── Configurations/             # IEntityTypeConfiguration<> классы
-│   │   ├── Repositories/               # SubjectRepository, ReportUsageRepository
-│   │   └── Migrations/                 # InitialSchema
-│   ├── SubjectHitman.Api/              # хост: minimal API + Wolverine + EF Core
-│   │   ├── Program.cs
-│   │   ├── Endpoints/UsageQueryEndpoint.cs
-│   │   ├── Sagas/
-│   │   │   ├── ReportAccountingSaga.cs         # § 7.3
-│   │   │   ├── ReportStatusCheckTimeout.cs     # внутреннее scheduled-сообщение
-│   │   │   └── SagaOptions.cs
-│   │   ├── Domain/
+  │   ├── SubjectHitman.DataAccess/       # EF Core: DbContext, миграции, реализации репозиториев
+  │   │   ├── AppDbContext.cs
+  │   │   ├── DesignTimeDbContextFactory.cs
+  │   │   ├── DataAccessServiceCollectionExtensions.cs
+  │   │   ├── Configurations/             # IEntityTypeConfiguration<> классы
+  │   │   ├── Repositories/               # SubjectRepository, ReportUsageRepository
+  │   │   ├── Telemetry/                  # IDataAccessMetricsPublisher, метрики слоя данных (Δ10)
+  │   │   └── Migrations/                 # InitialSchema
+  │   ├── SubjectHitman.Api/              # хост: minimal API + Wolverine + EF Core
+  │   │   ├── Program.cs
+  │   │   ├── Endpoints/UsageQueryEndpoint.cs
+  │   │   ├── Sagas/
+  │   │   │   ├── ReportAccountingSaga.cs         # § 7.3
+  │   │   │   ├── ReportStatusCheckTimeout.cs     # внутреннее scheduled-сообщение
+  │   │   │   └── SagaOptions.cs
+  │   │   ├── Telemetry/                  # IApiMetricsPublisher, метрики прикладного уровня (Δ10)
+  │   │   ├── Domain/
 │   │   │   ├── SubjectIdentificationService.cs
 │   │   │   ├── PersonalDataNormalizer.cs       # нормализация § 5.1–5.2
 │   │   │   ├── SearchKeyBuilder.cs             # K1..K6 + SHA256 (§ 5.3)
@@ -550,6 +552,9 @@ HTTP-реализация: `HttpClient` через `IHttpClientFactory`, timeout
 - Структурированное логирование (стандартный `ILogger`): создание субъекта (`subjectId`, число ключей), выбор при конфликте кандидатов (`subjectId` победителя, счётчики совпадений — **без значений ПДн**), Q1-конфликты, старт/исходы саги, timeout-ретраи, saga-not-found.
 - ProblemDetails для 400/500 (стандартный `AddProblemDetails` + exception handler). Тексты ошибок не содержат ПДн.
 - Health checks: `GET /health` — liveness; readiness — доступность PostgreSQL.
+- **Prometheus-метрики (Δ10):** `GET /metrics` через `OpenTelemetry.Exporter.Prometheus.AspNetCore`. Два класса-публикатора (singleton через интерфейс):
+  - `IApiMetricsPublisher` (Meter `SubjectHitman.Api`): счётчики `saga.started`, `saga.duplicate_orders`, `saga.finished{status,via}`, `saga.timeout_rechecks`, `saga.orphaned_events{event_type}`, `identification.completed{outcome}`, `identification.conflicts_resolved`, `identification.pd_conflicts{field}`; гистограммы `identification.duration` (ms), `report_status.duration` (ms); счётчик `report_status.requests{result}`.
+  - `IDataAccessMetricsPublisher` (Meter `SubjectHitman.DataAccess`): счётчики `subject_repository.unique_violation_retries`, `subject_repository.advisory_locks.acquired`; гистограмма `subject_repository.transaction.duration` (ms).
 - Обработка ошибок консюмера: встроенные политики Wolverine — retry с экспоненциальной задержкой (3 попытки), затем move to dead-letter queue.
 
 ---
@@ -605,7 +610,8 @@ HTTP-реализация: `HttpClient` через `IHttpClientFactory`, timeout
 | Δ6 | `SubjectHitman.sln`, каталог `tests/` | `SubjectHitman.slnx`, каталог `test/` | Современный формат решения |
 | Δ7 | Health readiness «доступность PostgreSQL» | `AddDbContextCheck<AppDbContext>` на `GET /health` | Одна проверка покрывает liveness+readiness на этой итерации |
 | Δ8 | `AppDbContext` и миграции в проекте Api; конфигурация в `OnModelCreating` | Выделены `SubjectHitman.Domain` (сущности + интерфейсы репозиториев) и `SubjectHitman.DataAccess` (DbContext, `IEntityTypeConfiguration<>`, миграции, реализации репозиториев). Потребители Api переключены на `ISubjectRepository` / `IReportUsageRepository`. | Dependency inversion: слой Api не зависит от деталей хранения. |
-| Δ9 | Версии пакетов в `PackageReference` каждого `.csproj` | NuGet Central Package Management: все версии (19 пакетов) централизованы в `Directory.Packages.props`; атрибут `Version` удалён из `PackageReference` в 4 проектах. | Единый источник версий, упрощение обновлений.
+| Δ9 | Версии пакетов в `PackageReference` каждого `.csproj` | NuGet Central Package Management: все версии (19 пакетов) централизованы в `Directory.Packages.props`; атрибут `Version` удалён из `PackageReference` в 4 проектах. | Единый источник версий, упрощение обновлений. |
+| Δ10 | Только структурированные логи | Добавлены Prometheus-метрики через OpenTelemetry: 14 счётчиков + 3 гистограммы в двух Meter'ах (`SubjectHitman.Api`, `SubjectHitman.DataAccess`), `GET /metrics`. Используется `OpenTelemetry.Exporter.Prometheus.AspNetCore` (prerelease 1.16.0-beta.1). | Мониторинг саг, идентификации, статус-API и слоя данных в проде.
 
 Функциональные требования (Q1–Q5, D1–D5, US-1..US-3) реализованы без отклонений.
 
@@ -616,9 +622,9 @@ HTTP-реализация: `HttpClient` через `IHttpClientFactory`, timeout
 3. **`NotFound` для timeout — штатный путь.** Scheduled-сообщение `ReportStatusCheckTimeout` всегда срабатывает после завершения саги по `ReportCompleted`/`ReportFailed`; обрабатывается статическим `NotFound` с логом `Debug` (не `Warning` — это не аномалия).
 4. **Двойная защита идемпотентности финализации.** `FinishAsync` меняет статус только из `Pending`; повторные `ReportCompleted`/`ReportFailed` после завершения саги попадают в `NotFound` (Q2).
 5. **Слой доступа к данным.** Выделены `SubjectHitman.Domain` (сущности + `ISubjectRepository`/`IReportUsageRepository`) и `SubjectHitman.DataAccess` (DbContext, `IEntityTypeConfiguration<>`, миграции, реализации). `SubjectIdentificationService` передаёт бизнес-логику в `ISubjectRepository.ExecuteIdentificationAsync` через коллбэк; транзакции, advisory-блокировки и ретраи инкапсулированы в `SubjectRepository` (DataAccess).
+6. **Публикаторы метрик.** Метрики живут в классах `ApiMetricsPublisher` и `DataAccessMetricsPublisher` (singleton через интерфейс `IApiMetricsPublisher`/`IDataAccessMetricsPublisher`), создающих `Meter` через `IMeterFactory`. Новые метрики добавляются только через публикаторы; прямое создание `Meter` в бизнес-коде запрещено. DataAccess-публикатор не тянет OpenTelemetry — только `Microsoft.Extensions.Diagnostics.Abstractions`.
 
 ### 12.4. Возможные улучшения (вне скоупа итерации)
 
 - AuthN/AuthZ HTTP API (Q3) — стандартный middleware, обработчики менять не потребуется.
 - Раздельные liveness/readiness probes при выкладке в оркестратор (Δ7).
-- Метрики (счётчики стартов/исходов саг, длительность идентификации) — сейчас только структурированные логи.

@@ -63,6 +63,7 @@ HTTP API и обработчики сообщений хостятся **в од
 ```
 SubjectHitman.slnx
 ├── Directory.Build.props
+├── Directory.Packages.props         # NuGet Central Package Management (Δ9)
 ├── src/
 │   ├── SubjectHitman.Abstractions/     # контракты: сообщения, DTO, IReportStatusClient
 │   │   ├── Messages/                   # ReportOrdered, ReportCompleted, ReportFailed
@@ -604,6 +605,7 @@ HTTP-реализация: `HttpClient` через `IHttpClientFactory`, timeout
 | Δ6 | `SubjectHitman.sln`, каталог `tests/` | `SubjectHitman.slnx`, каталог `test/` | Современный формат решения |
 | Δ7 | Health readiness «доступность PostgreSQL» | `AddDbContextCheck<AppDbContext>` на `GET /health` | Одна проверка покрывает liveness+readiness на этой итерации |
 | Δ8 | `AppDbContext` и миграции в проекте Api; конфигурация в `OnModelCreating` | Выделены `SubjectHitman.Domain` (сущности + интерфейсы репозиториев) и `SubjectHitman.DataAccess` (DbContext, `IEntityTypeConfiguration<>`, миграции, реализации репозиториев). Потребители Api переключены на `ISubjectRepository` / `IReportUsageRepository`. | Dependency inversion: слой Api не зависит от деталей хранения. |
+| Δ9 | Версии пакетов в `PackageReference` каждого `.csproj` | NuGet Central Package Management: все версии (19 пакетов) централизованы в `Directory.Packages.props`; атрибут `Version` удалён из `PackageReference` в 4 проектах. | Единый источник версий, упрощение обновлений.
 
 Функциональные требования (Q1–Q5, D1–D5, US-1..US-3) реализованы без отклонений.
 

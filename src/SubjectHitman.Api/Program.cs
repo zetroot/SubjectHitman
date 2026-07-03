@@ -1,7 +1,9 @@
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using SubjectHitman.Abstractions;
 using SubjectHitman.Abstractions.Messages;
 using SubjectHitman.Api.Domain;
+using SubjectHitman.Api.Endpoints;
 using SubjectHitman.Api.Infrastructure;
 using SubjectHitman.Api.Sagas;
 using SubjectHitman.DataAccess;
@@ -77,6 +79,10 @@ builder.Host.UseWolverine(opts =>
         .RetryWithCooldown(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(15))
         .Then.MoveToErrorQueue();
 });
+
+builder.Services.AddScoped<UsageQueryEndpoint>();
+
+builder.Services.AddValidatorsFromAssemblyContaining<UsageQueryRequestValidator>();
 
 builder.Services.AddProblemDetails();
 builder.Services.AddWolverineHttp();

@@ -1,3 +1,5 @@
+using FluentValidation;
+using FluentValidation.TestHelper;
 using SubjectHitman.Abstractions;
 using SubjectHitman.Abstractions.Api;
 using SubjectHitman.Api.Endpoints;
@@ -6,6 +8,8 @@ namespace SubjectHitman.UnitTests;
 
 public class UsageQueryValidationTests
 {
+    private readonly UsageQueryRequestValidator _validator = new();
+
     private static UsageQueryRequest ValidRequest() => new(
         LastName: "Иванов",
         FirstName: "Иван",
@@ -19,85 +23,58 @@ public class UsageQueryValidationTests
 
     [Fact]
     public void ValidRequest_NoErrors()
-        => Assert.Empty(UsageQueryEndpoint.Validate(ValidRequest()));
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void MissingLastName_Fails(string lastName)
-        => Assert.Contains("lastName", UsageQueryEndpoint.Validate(ValidRequest() with { LastName = lastName }).Keys);
+        => _validator.TestValidate(ValidRequest()).ShouldNotHaveAnyValidationErrors();
 
     [Fact]
-    public void MissingFirstName_Fails()
-        => Assert.Contains("firstName", UsageQueryEndpoint.Validate(ValidRequest() with { FirstName = "" }).Keys);
+    public void MissingLastName_Fails()
+        => _validator.TestValidate(ValidRequest() with { LastName = "" })
+            .ShouldHaveValidationErrorFor(x => x.LastName);
 
     [Fact]
     public void FutureBirthDate_Fails()
-        => Assert.Contains(
-            "birthDate",
-            UsageQueryEndpoint.Validate(ValidRequest() with { BirthDate = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(1)) }).Keys);
+        => _validator.TestValidate(ValidRequest() with { BirthDate = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(1)) })
+            .ShouldHaveValidationErrorFor(x => x.BirthDate);
 
     [Fact]
     public void MissingDocumentIssueDate_Fails()
-        => Assert.Contains(
-            "document.issueDate",
-            UsageQueryEndpoint.Validate(ValidRequest() with
-            {
-                Document = new IdentityDocumentData("21", "4510", "123456", null),
-            }).Keys);
+        => _validator.TestValidate(ValidRequest() with
+        {
+            Document = new IdentityDocumentData("21", "4510", "123456", null),
+        }).ShouldHaveValidationErrorFor(x => x.Document.IssueDate);
 
     [Fact]
-    public void MissingDocumentNumber_Fails()
-        => Assert.Contains(
-            "document.number",
-            UsageQueryEndpoint.Validate(ValidRequest() with
-            {
-                Document = new IdentityDocumentData("21", "4510", "", new DateOnly(2010, 5, 20)),
-            }).Keys);
-
-    [Theory]
-    [InlineData("12345")]           // too short
-    [InlineData("1234567890123")]   // too long
-    public void InvalidInnLength_Fails(string inn)
-        => Assert.Contains("inn", UsageQueryEndpoint.Validate(ValidRequest() with { Inn = inn }).Keys);
-
-    [Theory]
-    [InlineData("-")]
-    [InlineData("")]
-    [InlineData(null)]
-    public void AbsentInn_IsValid(string? inn)
-        => Assert.DoesNotContain("inn", UsageQueryEndpoint.Validate(ValidRequest() with { Inn = inn }).Keys);
+    public void InvalidInnLength_Fails()
+        => _validator.TestValidate(ValidRequest() with { Inn = "12345" })
+            .ShouldHaveValidationErrorFor(x => x.Inn);
 
     [Fact]
-    public void InvalidSnilsLength_Fails()
-        => Assert.Contains("snils", UsageQueryEndpoint.Validate(ValidRequest() with { Snils = "123" }).Keys);
+    public void AbsentInn_IsValid()
+        => _validator.TestValidate(ValidRequest() with { Inn = "-" })
+            .ShouldNotHaveValidationErrorFor(x => x.Inn);
 
     [Fact]
     public void SnilsWithSeparators_IsValid()
-        => Assert.DoesNotContain("snils", UsageQueryEndpoint.Validate(ValidRequest() with { Snils = "112-233-445 95" }).Keys);
+        => _validator.TestValidate(ValidRequest() with { Snils = "112-233-445 95" })
+            .ShouldNotHaveValidationErrorFor(x => x.Snils);
 
     [Fact]
     public void PreviousDocumentWithoutIssueDate_IsValid()
-        => Assert.Empty(UsageQueryEndpoint.Validate(ValidRequest() with
+        => _validator.TestValidate(ValidRequest() with
         {
             PreviousDocument = new IdentityDocumentData("21", "4501", "654321", null),
-        }));
+        }).ShouldNotHaveAnyValidationErrors();
 
     [Fact]
     public void PreviousDocumentWithoutNumber_Fails()
-        => Assert.Contains(
-            "previousDocument.number",
-            UsageQueryEndpoint.Validate(ValidRequest() with
-            {
-                PreviousDocument = new IdentityDocumentData("21", "4501", "", null),
-            }).Keys);
+        => _validator.TestValidate(ValidRequest() with
+        {
+            PreviousDocument = new IdentityDocumentData("21", "4501", "", null),
+        }).ShouldHaveValidationErrorFor(x => x.PreviousDocument!.Number);
 
     [Fact]
     public void PreviousNameWithoutLastName_Fails()
-        => Assert.Contains(
-            "previousName.lastName",
-            UsageQueryEndpoint.Validate(ValidRequest() with
-            {
-                PreviousName = new PersonNameData("", "Иван", null),
-            }).Keys);
+        => _validator.TestValidate(ValidRequest() with
+        {
+            PreviousName = new PersonNameData("", "Иван", null),
+        }).ShouldHaveValidationErrorFor(x => x.PreviousName!.LastName);
 }

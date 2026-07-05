@@ -4,9 +4,9 @@
 |---|---|
 | Статус | **Implemented** (as-built, актуализировано по коду) |
 | Автор | System Analyst |
-| Дата | 2026-07-02, актуализация 2026-07-03 |
+| Дата | 2026-07-02, актуализация 2026-07-05 |
 | Основание | `docs/development-task.md` (BA), `task.md` |
-| Реализация | 74/74 тестов зелёные (63 unit + 11 integration); план работ T1–T10 выполнен (§ 12) |
+| Реализация | 97/97 тестов зелёные (78 unit + 19 integration); план работ T1–T10 выполнен (§ 12) |
 
 Документ переводит бизнес-требования в техническое задание. Бизнес-контекст, user stories и допущения A1–A8 — см. `docs/development-task.md`; здесь они не дублируются, только уточняются.
 
@@ -107,9 +107,9 @@ SubjectHitman.slnx
     │   │   └── appsettings.json
 │   └── SubjectHitman.ReportStatusMock/ # мок статус-API (D5)
 ├── test/
-    │   ├── SubjectHitman.UnitTests/        # 73 теста: нормализация, ключи, cooldown,
+    │   ├── SubjectHitman.UnitTests/        # 78 тестов: нормализация, ключи, cooldown,
 │   │                                   # разрешение конфликтов, валидация
-│   └── SubjectHitman.IntegrationTests/ # 11 тестов: Testcontainers PostgreSQL + RabbitMQ,
+│   └── SubjectHitman.IntegrationTests/ # 19 тестов: Testcontainers PostgreSQL + RabbitMQ,
 │                                       # WebApplicationFactory, стаб IReportStatusClient
 ├── Dockerfile                          # образ SubjectHitman.Api
 ├── docker-compose.yml                  # postgres + rabbitmq + status-mock + api
@@ -554,11 +554,12 @@ HTTP-реализация: `HttpClient` через `IHttpClientFactory`, timeout
 
 - Структурированное логирование (стандартный `ILogger`): создание субъекта (`subjectId`, число ключей), выбор при конфликте кандидатов (`subjectId` победителя, счётчики совпадений — **без значений ПДн**), Q1-конфликты, старт/исходы саги, timeout-ретраи, saga-not-found.
 - ProblemDetails для 400/500 (стандартный `AddProblemDetails` + exception handler). Тексты ошибок не содержат ПДн.
-- Health checks: `GET /health` — liveness; readiness — доступность PostgreSQL.
+- Health checks: `GET /health` — liveness и readiness. Включены `AddWolverine("wolverine")` (состояние Wolverine runtime: запущен/останавливается) и `AddWolverineListeners("wolverine-listeners")` (состояние RabbitMQ listener'ов) через `WolverineFx.HealthChecks`, а также `AddDbContextCheck<AppDbContext>("postgres")` (доступность PostgreSQL).
 - **Prometheus-метрики (Δ10):** `GET /metrics` через `OpenTelemetry.Exporter.Prometheus.AspNetCore`. Два класса-публикатора (singleton через интерфейс):
   - `IApiMetricsPublisher` (Meter `SubjectHitman.Api`): счётчики `saga.started`, `saga.duplicate_orders`, `saga.finished{status,via}`, `saga.timeout_rechecks`, `saga.orphaned_events{event_type}`, `identification.completed{outcome}`, `identification.conflicts_resolved`, `identification.pd_conflicts{field}`; гистограммы `identification.duration` (ms), `report_status.duration` (ms); счётчик `report_status.requests{result}`.
   - `IDataAccessMetricsPublisher` (Meter `SubjectHitman.DataAccess`): счётчики `subject_repository.unique_violation_retries`, `subject_repository.advisory_locks.acquired`; гистограмма `subject_repository.transaction.duration` (ms).
-- Обработка ошибок консюмера: встроенные политики Wolverine — retry с экспоненциальной задержкой (3 попытки), затем move to dead-letter queue.
+- **Встроенные метрики Wolverine (Δ13):** через `AddMeter("Wolverine")` в OpenTelemetry: счётчики `wolverine-messages-succeeded`, `wolverine-execution-failure`, `wolverine-dead-letter-queue`; гистограммы `wolverine-execution-time`, `wolverine-effective-time`; gauges `wolverine-inbox-count`, `wolverine-outbox-count`, `wolverine-scheduled-count`.
+- Обработка ошибок консюмера: встроенные политики Wolverine — `RetryWithCooldown(1s, 5s, 15s)` на любых исключениях, затем move to dead-letter queue.
 
 ---
 
@@ -595,11 +596,11 @@ HTTP-реализация: `HttpClient` через `IHttpClientFactory`, timeout
 
 ---
 
-## 12. Статус реализации (as-built, 2026-07-03)
+## 12. Статус реализации (as-built, 2026-07-05)
 
 ### 12.1. Итог
 
-Компонент реализован полностью, все задачи T1–T10 закрыты. Тесты: **73 unit + 11 integration = 84/84 зелёные**. Интеграционные тесты — Testcontainers (`postgres:17-alpine`, `rabbitmq:4-management-alpine`) + `WebApplicationFactory<Program>`; `IReportStatusClient` подменяется управляемым стабом, `Saga:Timeout` в тестах — 2 сек, `MaxTimeoutRetries` — 2.
+Компонент реализован полностью, все задачи T1–T10 закрыты. Тесты: **78 unit + 19 integration = 97/97 зелёные**. Интеграционные тесты — Testcontainers (`postgres:17-alpine`, `rabbitmq:4-management-alpine`) + `WebApplicationFactory<Program>`; `IReportStatusClient` подменяется управляемым стабом, `Saga:Timeout` в тестах — 2 сек, `MaxTimeoutRetries` — 2.
 
 ### 12.2. Отклонения от первоначальной спеки
 
@@ -611,12 +612,14 @@ HTTP-реализация: `HttpClient` через `IHttpClientFactory`, timeout
 | Δ4 | `ReportStatusCheckTimeout(Guid ReportId)` | `ReportStatusCheckTimeout(Guid ReportId, int CheckCount)` | Диагностика: номер проверки виден в сообщении |
 | Δ5 | Ретраи консюмера: экспоненциальная задержка, 3 попытки | `RetryWithCooldown(1s, 5s, 15s)` → move to error queue | Эквивалентная политика штатными средствами Wolverine |
 | Δ6 | `SubjectHitman.sln`, каталог `tests/` | `SubjectHitman.slnx`, каталог `test/` | Современный формат решения |
-| Δ7 | Health readiness «доступность PostgreSQL» | `AddDbContextCheck<AppDbContext>` на `GET /health` | Одна проверка покрывает liveness+readiness на этой итерации |
+| Δ7 | Health readiness «доступность PostgreSQL» | `AddWolverine("wolverine")` + `AddWolverineListeners("wolverine-listeners")` + `AddDbContextCheck<AppDbContext>("postgres")` на `GET /health` через пакет `WolverineFx.HealthChecks` | Мониторинг состояния Wolverine runtime и RabbitMQ listener'ов дополнительно к проверке БД |
 | Δ8 | `AppDbContext` и миграции в проекте Api; конфигурация в `OnModelCreating` | Выделены `SubjectHitman.Domain` (сущности + интерфейсы репозиториев) и `SubjectHitman.DataAccess` (DbContext, `IEntityTypeConfiguration<>`, миграции, реализации репозиториев). Потребители Api переключены на `ISubjectRepository` / `IReportUsageRepository`. | Dependency inversion: слой Api не зависит от деталей хранения. |
-| Δ9 | Версии пакетов в `PackageReference` каждого `.csproj` | NuGet Central Package Management: все версии (19 пакетов) централизованы в `Directory.Packages.props`; атрибут `Version` удалён из `PackageReference` в 4 проектах. | Единый источник версий, упрощение обновлений. |
+| Δ9 | Версии пакетов в `PackageReference` каждого `.csproj` | NuGet Central Package Management: все версии (22 пакета) централизованы в `Directory.Packages.props`; атрибут `Version` удалён из `PackageReference` в 4 проектах. | Единый источник версий, упрощение обновлений. |
 | Δ10 | Только структурированные логи | Добавлены Prometheus-метрики через OpenTelemetry: 14 счётчиков + 3 гистограммы в двух Meter'ах (`SubjectHitman.Api`, `SubjectHitman.DataAccess`), `GET /metrics`. Используется `OpenTelemetry.Exporter.Prometheus.AspNetCore` (prerelease 1.16.0-beta.1). | Мониторинг саг, идентификации, статус-API и слоя данных в проде.
 | Δ11 | Бизнес-логика в `SubjectHitman.Api/Domain/` (SubjectIdentificationService, PersonalDataNormalizer, SearchKeyBuilder, FreeReportCounter) | Бизнес-логика перенесена в `SubjectHitman.Domain` (подкаталоги `Identification/` и `Counting/`). `SubjectHitman.Domain` ссылается на `SubjectHitman.Abstractions`. `IDomainMetricsPublisher` выделен в Domain/Telemetry, `ApiMetricsPublisher` реализует и `IApiMetricsPublisher`, и `IDomainMetricsPublisher`. Слой Api содержит только техническую часть (HTTP, Wolverine, валидаторы, телеметрия-инфраструктура). | Чистая архитектура: Api — технический хост, Domain — бизнес-логика. |
 | Δ12 | Логи на русском, без `BeginScope`, без конфигурации формата; исключения и метрики Prometheus на русском | Все логи, исключения и метрики переведены на английский. Идентификаторы (`ReportId`, `IsFree`) вынесены в `logger.BeginScope(...)` в каждом saga-обработчике и `ReportStatusClient`. Уровни приведены к правилам: Info — изменение состояния, Debug — ветвление/ожидаемые сценарии, Warning — неожиданные ситуации. `string.Join` обёрнут в `IsEnabled`-guard. Формат вывода — JSON console с `IncludeScopes: true` (готово для ELK). Правила зафиксированы в `AGENTS.md`. | Стандартизация наблюдаемости, подготовка к ELK. |
+| Δ13 | Только кастомные Prometheus-метрики | Добавлены встроенные метрики Wolverine через `AddMeter("Wolverine")`: счётчики `wolverine-messages-succeeded`, `wolverine-execution-failure`, `wolverine-dead-letter-queue`; гистограммы `wolverine-execution-time`, `wolverine-effective-time`; gauges `wolverine-inbox-count`, `wolverine-outbox-count`, `wolverine-scheduled-count`. | Мониторинг сообщений, времени обработки и глубины durable-очередей Wolverine в проде. |
+| Δ14 | Только PostgreSQL health check | Добавлены `AddWolverine("wolverine")` (состояние runtime) и `AddWolverineListeners("wolverine-listeners")` (состояние RabbitMQ listener'ов) через пакет `WolverineFx.HealthChecks`. | Мониторинг инфраструктуры Wolverine на `/health`: запущен ли runtime, активны ли RabbitMQ-слушатели. |
 
 Функциональные требования (Q1–Q5, D1–D5, US-1..US-3) реализованы без отклонений.
 
@@ -632,4 +635,6 @@ HTTP-реализация: `HttpClient` через `IHttpClientFactory`, timeout
 ### 12.4. Возможные улучшения (вне скоупа итерации)
 
 - AuthN/AuthZ HTTP API (Q3) — стандартный middleware, обработчики менять не потребуется.
-- Раздельные liveness/readiness probes при выкладке в оркестратор (Δ7).
+- Раздельные liveness/readiness probes при выкладке в оркестратор (разные теги для `AddWolverine`/`AddWolverineListeners`/`AddDbContextCheck`).
+- Переход на `TypeLoadMode.Static` с предварительной кодогенерацией (`dotnet run -- codegen write`) для production.
+- Использование `app.RunJasperFxCommands(args)` вместо `app.RunAsync()` для доступа к CLI-командам обслуживания Wolverine.

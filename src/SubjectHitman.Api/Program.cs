@@ -15,6 +15,7 @@ using SubjectHitman.Domain.Telemetry;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.ErrorHandling;
+using Wolverine.HealthChecks;
 using Wolverine.Http;
 using Wolverine.Postgresql;
 using Wolverine.RabbitMQ;
@@ -94,12 +95,16 @@ builder.Services.AddValidatorsFromAssemblyContaining<UsageQueryRequestValidator>
 
 builder.Services.AddProblemDetails();
 builder.Services.AddWolverineHttp();
-builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>("postgres");
+builder.Services.AddHealthChecks()
+    .AddWolverine("wolverine")
+    .AddWolverineListeners("wolverine-listeners")
+    .AddDbContextCheck<AppDbContext>("postgres");
 
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("SubjectHitman.Api"))
     .WithMetrics(m => m
         .AddAspNetCoreInstrumentation()
+        .AddMeter("Wolverine")
         .AddMeter("SubjectHitman.Api")
         .AddMeter("SubjectHitman.DataAccess")
         .AddPrometheusExporter());
